@@ -1,0 +1,27 @@
+{
+  "name": "@workspace/backend",
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "setup": "convex dev --until-success"
+  },
+  "exports": {
+    "./convex": "./convex/*.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "latest"
+  },
+  "dependencies": {
+    "@ai-sdk/groq": "^2.0.24",
+    "@aws-sdk/client-secrets-manager": "^3.864.0",
+    "@clerk/backend": "^2.9.2",
+    "@convex-dev/agent": "^0.2.1",
+    "@convex-dev/rag": "^0.5.2",
+    "ai": "^5.0.17",
+    "convex": "^1.25.4",
+    "convex-helpers": "^0.1.104",
+    "zod": "^3.25.76"
+  }
+}
