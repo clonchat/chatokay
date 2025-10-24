@@ -1,0 +1,308 @@
+{
+  "info": {
+    "name": "ChatOkay API",
+    "description": "API endpoints for ChatOkay application with Convex backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://original-grasshopper-645.convex.cloud",
+      "type": "string"
+    },
+    {
+      "key": "clerkWebhookSecret",
+      "value": "whsec_OWq68DYcUfjY9Ay6swiSkJyCX56zZxEw",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Clerk Webhook - User Created",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "svix-id",
+                "value": "msg_test123"
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "{{$timestamp}}"
+              },
+              {
+                "key": "svix-signature",
+                "value": "v1,test-signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": \"user_test123\",\n    \"email_addresses\": [\n      {\n        \"email_address\": \"test@example.com\"\n      }\n    ],\n    \"first_name\": \"Test\",\n    \"last_name\": \"User\",\n    \"created_at\": {{$timestamp}},\n    \"updated_at\": {{$timestamp}}\n  },\n  \"type\": \"user.created\",\n  \"object\": \"event\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clerk-webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["clerk-webhook"]
+            },
+            "description": "Test webhook endpoint for user creation from Clerk"
+          }
+        },
+        {
+          "name": "Clerk Webhook - User Updated",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "svix-id",
+                "value": "msg_test456"
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "{{$timestamp}}"
+              },
+              {
+                "key": "svix-signature",
+                "value": "v1,test-signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": \"user_test123\",\n    \"email_addresses\": [\n      {\n        \"email_address\": \"updated@example.com\"\n      }\n    ],\n    \"first_name\": \"Updated\",\n    \"last_name\": \"User\",\n    \"created_at\": {{$timestamp}},\n    \"updated_at\": {{$timestamp}}\n  },\n  \"type\": \"user.updated\",\n  \"object\": \"event\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clerk-webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["clerk-webhook"]
+            },
+            "description": "Test webhook endpoint for user update from Clerk"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Businesses",
+      "item": [
+        {
+          "name": "Get Current User Business",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clerkToken}}",
+                "description": "Clerk JWT token"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/businesses/getCurrentUserBusiness",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "businesses", "getCurrentUserBusiness"]
+            },
+            "description": "Get the current user's business information"
+          }
+        },
+        {
+          "name": "Create Business",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clerkToken}}",
+                "description": "Clerk JWT token"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {\n    \"name\": \"Mi Negocio\",\n    \"description\": \"Descripción de mi negocio\",\n    \"subdomain\": \"mi-negocio\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/businesses/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "businesses", "create"]
+            },
+            "description": "Create a new business for the current user"
+          }
+        },
+        {
+          "name": "Update Services",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clerkToken}}",
+                "description": "Clerk JWT token"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {\n    \"businessId\": \"{{businessId}}\",\n    \"services\": [\n      {\n        \"id\": \"service1\",\n        \"name\": \"Corte de Cabello\",\n        \"duration\": 30,\n        \"price\": 25\n      },\n      {\n        \"id\": \"service2\",\n        \"name\": \"Barba\",\n        \"duration\": 15,\n        \"price\": 15\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/businesses/updateServices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "businesses", "updateServices"]
+            },
+            "description": "Update services for a business"
+          }
+        },
+        {
+          "name": "Update Availability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clerkToken}}",
+                "description": "Clerk JWT token"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {\n    \"businessId\": \"{{businessId}}\",\n    \"availability\": [\n      {\n        \"day\": \"monday\",\n        \"slots\": [\n          {\n            \"start\": \"09:00\",\n            \"end\": \"17:00\"\n          }\n        ]\n      },\n      {\n        \"day\": \"tuesday\",\n        \"slots\": [\n          {\n            \"start\": \"09:00\",\n            \"end\": \"17:00\"\n          }\n        ]\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/businesses/updateAvailability",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "businesses", "updateAvailability"]
+            },
+            "description": "Update availability schedule for a business"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Update or Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {\n    \"clerkUser\": {\n      \"id\": \"user_test123\",\n      \"email_addresses\": [\n        {\n          \"email_address\": \"test@example.com\"\n        }\n      ],\n      \"first_name\": \"Test\",\n      \"last_name\": \"User\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/updateOrCreateUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "updateOrCreateUser"]
+            },
+            "description": "Internal mutation to create or update user from Clerk webhook"
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"args\": {\n    \"id\": \"user_test123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/deleteUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "deleteUser"]
+            },
+            "description": "Internal mutation to delete user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Endpoints",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Basic health check to verify Convex deployment is accessible"
+          }
+        },
+        {
+          "name": "Test Webhook (No Auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test\": \"webhook\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clerk-webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["clerk-webhook"]
+            },
+            "description": "Test webhook endpoint without proper authentication (should fail)"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set timestamp for webhook testing",
+          "pm.globals.set('timestamp', Math.floor(Date.now() / 1000));"
+        ]
+      }
+    }
+  ]
+}
