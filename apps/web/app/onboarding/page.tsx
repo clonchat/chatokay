@@ -138,7 +138,9 @@ export default function OnboardingPage() {
 
             if (startIndex !== -1 && endIndex !== -1) {
               for (let i = startIndex; i < endIndex; i++) {
-                newSlots[dayIndex][i] = true;
+                if (newSlots[dayIndex]) {
+                  newSlots[dayIndex][i] = true;
+                }
               }
             }
           });
@@ -343,7 +345,7 @@ export default function OnboardingPage() {
       if (start !== null) {
         const lastTime = TIME_SLOTS[TIME_SLOTS.length - 1] || "";
         const [hours, minutes] = lastTime.split(":").map(Number);
-        const endTime = `${hours.toString().padStart(2, "0")}:${((minutes || 0) + 30).toString().padStart(2, "0")}`;
+        const endTime = `${(hours || 0).toString().padStart(2, "0")}:${((minutes || 0) + 30).toString().padStart(2, "0")}`;
         slots.push({ start, end: endTime });
       }
 
