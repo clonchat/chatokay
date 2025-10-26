@@ -15,13 +15,13 @@
     "typescript": "latest"
   },
   "dependencies": {
-    "@ai-sdk/groq": "beta",
     "@aws-sdk/client-secrets-manager": "^3.864.0",
     "@clerk/backend": "^2.9.2",
     "@convex-dev/agent": "^0.2.1",
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/rag": "^0.5.2",
-    "ai": "beta",
+    "@openrouter/ai-sdk-provider": "^1.2.0",
+    "ai": "^5.0.17",
     "convex": "^1.25.4",
     "convex-helpers": "^0.1.104",
     "svix": "^1.79.0",

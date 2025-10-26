@@ -1,23 +1,16 @@
-import { action } from "./_generated/server.js";
+import { Agent } from "@convex-dev/agent";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { v } from "convex/values";
-import { api } from "./_generated/api.js";
-import { createGroq } from "@ai-sdk/groq";
-import { generateText, type CoreMessage } from "ai";
 import { z } from "zod";
-import type { Id } from "./_generated/dataModel.js";
+import { api, components } from "./_generated/api.js";
+import { action } from "./_generated/server.js";
 
-/**
- * Initialize Groq AI provider
- * Using Groq for fast inference with Llama models
- */
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
+// Initialize OpenRouter provider
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-/**
- * Schema for get_available_slots tool parameters
- * Validates date format and provides clear description for the AI
- */
+// Schema definitions for tools
 const getAvailableSlotsSchema = z.object({
   date: z
     .string()
@@ -27,10 +20,6 @@ const getAvailableSlotsSchema = z.object({
     ),
 });
 
-/**
- * Schema for create_appointment tool parameters
- * Validates all required and optional fields for creating an appointment
- */
 const createAppointmentSchema = z.object({
   customerName: z.string().describe("Nombre completo del cliente"),
   customerEmail: z.string().optional().describe("Email del cliente (opcional)"),
@@ -53,140 +42,8 @@ const createAppointmentSchema = z.object({
     .describe("Notas adicionales sobre la cita (opcional)"),
 });
 
-// Type helpers for clean type inference throughout the code
 type GetAvailableSlotsParams = z.infer<typeof getAvailableSlotsSchema>;
 type CreateAppointmentParams = z.infer<typeof createAppointmentSchema>;
-
-/**
- * Chat action that handles customer messages and executes AI responses with tool calling
- * Supports multi-step conversations with automatic tool execution
- */
-export const sendMessage = action({
-  args: {
-    messages: v.array(
-      v.object({
-        role: v.union(
-          v.literal("user"),
-          v.literal("assistant"),
-          v.literal("system")
-        ),
-        content: v.string(),
-      })
-    ),
-    subdomain: v.string(),
-  },
-  handler: async (ctx, args): Promise<{ content: string }> => {
-    console.log("[Chat] Starting sendMessage handler");
-
-    // Fetch business configuration
-    const business = await ctx.runQuery(api.businesses.getBySubdomain, {
-      subdomain: args.subdomain,
-    });
-
-    if (!business) {
-      throw new Error(`Business not found for subdomain: ${args.subdomain}`);
-    }
-
-    // Generate contextual information for the AI
-    const currentDate = new Date().toISOString().split("T")[0] ?? "";
-    const currentDay =
-      new Date().toLocaleDateString("es-ES", {
-        weekday: "long",
-      }) ?? "Unknown";
-
-    // Build comprehensive system prompt with business context
-    const systemPrompt = buildSystemPrompt(
-      { name: business.name, description: business.description },
-      currentDate,
-      currentDay
-    );
-
-    // Prepare message history for the AI model
-    const messages = prepareMessages(systemPrompt, args.messages);
-
-    // Define available tools for the AI agent
-    const tools = defineTools(ctx, args.subdomain, business._id);
-
-    // Generate AI response with automatic tool calling
-    console.log("[Chat] Calling AI model with tools");
-    const aiResponse = await generateAIResponse(messages, tools);
-
-    console.log("[Chat] AI response received", {
-      finishReason: aiResponse.finishReason,
-      toolCalls: aiResponse.toolCalls?.length || 0,
-      text: aiResponse.text,
-      hasText: !!aiResponse.text,
-    });
-
-    // Handle tool-calls finish reason: SDK v6 beta returns finishReason: 'tool-calls' when tools are called
-    if (
-      aiResponse.finishReason === "tool-calls" &&
-      !aiResponse.text &&
-      aiResponse.toolCalls &&
-      aiResponse.toolCalls.length > 0
-    ) {
-      console.log(
-        "[Chat] Handling tool-calls finish reason, processing with agent-like behavior"
-      );
-
-      // Execute tools to get results
-      const toolResults: any[] = [];
-      for (const toolCall of aiResponse.toolCalls) {
-        const toolName = toolCall.toolName as keyof typeof tools;
-        const tool = tools[toolName];
-        if (tool && tool.execute) {
-          try {
-            // Get args safely, handling both typed and dynamic tool calls
-            const args =
-              (toolCall as any).args || (toolCall as any).parameters || {};
-            const result = await tool.execute(args);
-            toolResults.push({ toolName, result });
-            console.log(`[Chat] Tool ${toolName} executed, result:`, result);
-          } catch (error) {
-            console.error(`[Chat] Error executing tool ${toolName}:`, error);
-            toolResults.push({ toolName, result: { error: String(error) } });
-          }
-        }
-      }
-
-      // Add tool results to messages in the format expected by the model
-      const updatedMessages: CoreMessage[] = [
-        ...messages,
-        ...aiResponse.toolCalls.map((tc) => ({
-          role: "assistant" as const,
-          content: `Used tool: ${tc.toolName}`,
-        })),
-      ];
-
-      // Add tool results as structured content
-      for (const tr of toolResults) {
-        updatedMessages.push({
-          role: "user" as const,
-          content: `Resultado de ${tr.toolName}: ${JSON.stringify(tr.result)}`,
-        });
-      }
-
-      // Add instruction to provide the response
-      updatedMessages.push({
-        role: "user" as const,
-        content:
-          "Ahora proporciona una respuesta completa y amigable con la información obtenida.",
-      });
-
-      // Generate final response
-      console.log("[Chat] Generating final response with tool results");
-      const finalResponse = await generateAIResponse(updatedMessages, tools);
-
-      return {
-        content:
-          finalResponse.text ||
-          "Lo siento, no pude procesar tu solicitud correctamente.",
-      };
-    }
-
-    return { content: aiResponse.text || "" };
-  },
-});
 
 /**
  * Builds a comprehensive system prompt with business context
@@ -229,115 +86,202 @@ function buildSystemPrompt(
   - Siempre llama a get_services cuando te pregunten por los servicios
   - Siempre llama a get_available_slots cuando te pregunten por disponibilidad
   - Solo crea la cita cuando tengas todos los datos confirmados
+  - Recuerda contestar en formato markdown.
   
   Responde en español de forma natural y conversacional.`;
 }
 
 /**
- * Prepares messages for the AI model including system prompt
+ * Chat action that handles customer messages using Convex native agent
+ * Each session is independent - no thread persistence across refreshes
  */
-function prepareMessages(
-  systemPrompt: string,
-  userMessages: Array<{ role: string; content: string }>
-): CoreMessage[] {
-  return [
-    { role: "system", content: systemPrompt },
-    ...userMessages.map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    })),
-  ];
-}
+export const sendMessage = action({
+  args: {
+    messages: v.array(
+      v.object({
+        role: v.union(
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
+        ),
+        content: v.string(),
+      })
+    ),
+    subdomain: v.string(),
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ content: string }> => {
+    console.log("[Chat] Starting sendMessage handler");
 
-/**
- * Defines all available tools for the AI agent
- * Uses Vercel AI SDK v6 tool pattern
- */
-function defineTools(ctx: any, subdomain: string, businessId: any) {
-  return {
-    get_services: {
-      description:
-        "Obtiene la lista completa de servicios que ofrece el negocio. " +
-        "Usa esta herramienta cuando el cliente pregunte qué servicios están disponibles.",
-      parameters: z.object({}),
-      execute: async () => {
-        console.log("[Tool] get_services called");
-        const businessData = await ctx.runQuery(api.businesses.getBySubdomain, {
-          subdomain,
-        });
-        const result = {
-          services: businessData?.services || [],
-          businessName: businessData?.name,
-        };
-        console.log("[Tool] get_services result:", JSON.stringify(result));
-        return result;
+    // Fetch business configuration
+    const business = await ctx.runQuery(api.businesses.getBySubdomain, {
+      subdomain: args.subdomain,
+    });
+
+    if (!business) {
+      throw new Error(`Business not found for subdomain: ${args.subdomain}`);
+    }
+
+    // Generate contextual information
+    const currentDate = new Date().toISOString().split("T")[0] ?? "";
+    const currentDay =
+      new Date().toLocaleDateString("es-ES", {
+        weekday: "long",
+      }) ?? "Unknown";
+
+    // Build system prompt
+    const systemPrompt = buildSystemPrompt(
+      { name: business.name, description: business.description },
+      currentDate,
+      currentDay
+    );
+
+    // Define tools that will be used by the agent
+    const tools = {
+      get_services: {
+        description:
+          "Obtiene la lista completa de servicios que ofrece el negocio. " +
+          "Usa esta herramienta cuando el cliente pregunte qué servicios están disponibles.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const businessData = await ctx.runQuery(
+            api.businesses.getBySubdomain,
+            { subdomain: args.subdomain }
+          );
+          return {
+            services: businessData?.services || [],
+            businessName: businessData?.name,
+          };
+        },
       },
-    },
-
-    get_available_slots: {
-      description:
-        "Consulta los horarios disponibles para una fecha específica. " +
-        "Retorna una lista de slots de tiempo disponibles para ese día.",
-      parameters: getAvailableSlotsSchema,
-      execute: async ({ date }: GetAvailableSlotsParams) => {
-        console.log("[Tool] get_available_slots called", { date });
-        const slots = await ctx.runQuery(api.appointments.getAvailableSlots, {
-          businessId,
-          date,
-        });
-        const dateObj = new Date(`${date}T00:00:00`);
-        const dayName = dateObj.toLocaleDateString("es-ES", {
-          weekday: "long",
-        });
-        return {
-          date,
-          dayName,
-          availableSlots: slots.filter(
-            (slot: { isBooked: boolean }) => !slot.isBooked
-          ),
-        };
+      get_available_slots: {
+        description:
+          "Consulta los horarios disponibles para una fecha específica. " +
+          "Retorna una lista de slots de tiempo disponibles para ese día.",
+        inputSchema: getAvailableSlotsSchema,
+        execute: async ({ date }: GetAvailableSlotsParams) => {
+          const slots = await ctx.runQuery(api.appointments.getAvailableSlots, {
+            businessId: business._id,
+            date,
+          });
+          const dateObj = new Date(`${date}T00:00:00`);
+          const dayName = dateObj.toLocaleDateString("es-ES", {
+            weekday: "long",
+          });
+          return {
+            date,
+            dayName,
+            availableSlots: slots.filter(
+              (slot: { isBooked: boolean }) => !slot.isBooked
+            ),
+          };
+        },
       },
-    },
-
-    create_appointment: {
-      description:
-        "Crea una nueva cita para el cliente. " +
-        "Asegúrate de tener toda la información necesaria antes de llamar a esta función.",
-      parameters: createAppointmentSchema,
-      execute: async (params: CreateAppointmentParams) => {
-        console.log("[Tool] create_appointment called", { params });
-        const appointmentId = await ctx.runMutation(
-          api.appointments.createAppointment,
-          {
-            businessId,
-            customerName: params.customerName,
-            customerEmail: params.customerEmail,
-            customerPhone: params.customerPhone,
-            appointmentTime: params.appointmentTime,
-            serviceName: params.serviceName,
-            notes: params.notes,
+      create_appointment: {
+        description:
+          "Crea una nueva cita para el cliente. " +
+          "Asegúrate de tener toda la información necesaria antes de llamar a esta función.",
+        inputSchema: createAppointmentSchema,
+        execute: async (params: CreateAppointmentParams) => {
+          try {
+            const appointmentId = await ctx.runMutation(
+              api.appointments.createAppointment,
+              {
+                businessId: business._id,
+                customerName: params.customerName,
+                customerEmail: params.customerEmail,
+                customerPhone: params.customerPhone,
+                appointmentTime: params.appointmentTime,
+                serviceName: params.serviceName,
+                notes: params.notes,
+              }
+            );
+            return {
+              success: true,
+              appointmentId: appointmentId.toString(),
+              message: "Cita creada exitosamente",
+              details: params,
+            };
+          } catch (error) {
+            return {
+              success: false,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Error al crear la cita",
+              details: params,
+            };
           }
-        );
-        return {
-          success: true,
-          appointmentId: appointmentId.toString(),
-          message: "Cita creada exitosamente",
-          details: params,
-        };
+        },
       },
-    },
-  };
-}
+    };
 
-/**
- * Generates AI response using Groq with automatic tool calling support
- * Vercel AI SDK v6 handles tool execution automatically
- */
-async function generateAIResponse(messages: CoreMessage[], tools: any) {
-  return await generateText({
-    model: groq("llama-3.3-70b-versatile"),
-    messages,
-    tools,
-    temperature: 0.7,
-  });
-}
+    // Create agent instance with tools
+    const agent = new Agent(components.agent, {
+      name: `Agent for ${business.name}`,
+      languageModel: openrouter("minimax/minimax-m2:free"),
+      instructions: systemPrompt,
+      tools,
+      maxSteps: 5,
+    });
+
+    // Extract the latest user message
+    const latestMessage = args.messages[args.messages.length - 1];
+    const userMessage = latestMessage?.content || "";
+
+    // Convert frontend messages to format expected by Convex Agent
+    // The agent will use the userId to maintain conversation context
+    const agentMessages = args.messages
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+
+    // Use the session ID from the frontend to maintain conversation context
+    // within the same browser session. Each page refresh gets a new sessionId.
+    const sessionUserId = args.sessionId;
+
+    // Send message to agent and get response
+    // Pass all messages for full conversation context
+    console.log("[Chat] Calling agent with session:", sessionUserId);
+    console.log("[Chat] Total messages in context:", agentMessages.length);
+
+    const result = await agent.generateText(
+      ctx,
+      { userId: sessionUserId },
+      {
+        messages: agentMessages,
+      }
+    );
+
+    console.log("[Chat] Agent response received:", {
+      text: result.text,
+      finishReason: result.finishReason,
+    });
+
+    // Remove any reasoning tags from the response
+    let cleanText =
+      result.text || "Lo siento, no pude procesar tu solicitud correctamente.";
+
+    // Remove <think>, <think>, <reasoning> tags and their content
+    cleanText = cleanText.replace(
+      /<think>[\s\S]*?<\/redacted_reasoning>/gi,
+      ""
+    );
+    cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    cleanText = cleanText.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
+    cleanText = cleanText.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+    cleanText = cleanText.replace(
+      /<reasoning_text>[\s\S]*?<\/reasoning_text>/gi,
+      ""
+    );
+
+    // Clean up extra whitespace
+    cleanText = cleanText.trim();
+
+    return {
+      content: cleanText,
+    };
+  },
+});

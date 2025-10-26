@@ -34,6 +34,12 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sendMessageAction = useAction(api.chat.sendMessage);
 
+  // Generate a unique session ID that persists for this browser session
+  // This gets reset on page refresh, ensuring fresh conversations
+  const sessionIdRef = useRef<string>(
+    `${subdomain}-${Date.now()}-${Math.random()}`
+  );
+
   useEffect(() => {
     async function fetchBusiness() {
       try {
@@ -128,6 +134,7 @@ export default function ChatPage() {
       const response = await sendMessageAction({
         messages: updatedMessages,
         subdomain: subdomain,
+        sessionId: sessionIdRef.current,
       });
 
       if (!response || !response.content) {

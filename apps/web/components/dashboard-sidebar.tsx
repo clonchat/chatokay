@@ -60,11 +60,19 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
           {/* Header */}
           <div className="flex h-16 items-center border-b border-sidebar-border px-6">
             <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-                <span className="text-sidebar-primary-foreground font-bold text-sm">
-                  {business?.name?.charAt(0) || "C"}
-                </span>
-              </div>
+              {business?.visualConfig?.logoUrl ? (
+                <img
+                  src={business.visualConfig.logoUrl}
+                  alt={business.name}
+                  className="h-8 w-8 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
+                  <span className="text-sidebar-primary-foreground font-bold text-sm">
+                    {business?.name?.charAt(0) || "C"}
+                  </span>
+                </div>
+              )}
               <div>
                 <h1 className="text-lg font-semibold text-sidebar-foreground">
                   {business?.name || "ChatOkay"}
