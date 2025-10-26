@@ -225,7 +225,7 @@ export default function OnboardingPage() {
 
     setIsLoading(true);
     try {
-      let logoUrl: string | undefined;
+      let logoUrl: Id<"_storage"> | undefined;
 
       // Upload logo if selected
       if (logoFile) {
@@ -241,7 +241,7 @@ export default function OnboardingPage() {
         }
 
         const { storageId } = await uploadResult.json();
-        logoUrl = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+        logoUrl = storageId;
       }
 
       await updateVisualConfig({
@@ -376,7 +376,7 @@ export default function OnboardingPage() {
         description,
         subdomain,
         visualConfig: {
-          logoUrl: logoPreview || undefined,
+          logoUrl: undefined,
           theme,
           welcomeMessage: welcomeMessage || undefined,
         },

@@ -8,11 +8,18 @@ export type AuthStatus =
   | "onboarding" // User signed in but no business
   | "authenticated"; // User signed in with business
 
+// Business type with resolved logo URL (from the API)
+type BusinessWithLogoUrl = Omit<Doc<"businesses">, "visualConfig"> & {
+  visualConfig: Omit<Doc<"businesses">["visualConfig"], "logoUrl"> & {
+    logoUrl?: string;
+  };
+};
+
 // User atom - stores user data from Convex backend
 export const userAtom = atom<Doc<"users"> | null>(null);
 
 // Business atom - stores user's business data
-export const businessAtom = atom<Doc<"businesses"> | null>(null);
+export const businessAtom = atom<BusinessWithLogoUrl | null>(null);
 
 // Clerk auth state atom - stores Clerk's authentication state
 export const clerkAuthAtom = atom<{
