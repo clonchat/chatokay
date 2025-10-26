@@ -273,7 +273,7 @@ export const updateVisualConfig = mutation({
   args: {
     businessId: v.id("businesses"),
     logoUrl: v.optional(v.id("_storage")),
-    theme: v.union(v.literal("light"), v.literal("dark")),
+    theme: v.optional(v.union(v.literal("light"), v.literal("dark"))),
     welcomeMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -306,14 +306,83 @@ export const updateVisualConfig = mutation({
       throw new Error("User does not own this business");
     }
 
+    // Get current visual config
+    const currentVisualConfig = business.visualConfig || {
+      theme: "light" as const,
+    };
+
+    // Build the update object, merging with existing config
+    const visualConfigUpdate: any = {
+      ...currentVisualConfig,
+    };
+
+    if (args.logoUrl !== undefined) {
+      visualConfigUpdate.logoUrl = args.logoUrl;
+    }
+    if (args.theme !== undefined) {
+      visualConfigUpdate.theme = args.theme;
+    }
+    if (args.welcomeMessage !== undefined) {
+      visualConfigUpdate.welcomeMessage = args.welcomeMessage;
+    }
+
     // Update the visual config
     await ctx.db.patch(args.businessId, {
-      visualConfig: {
-        logoUrl: args.logoUrl,
-        theme: args.theme,
-        welcomeMessage: args.welcomeMessage,
-      },
+      visualConfig: visualConfigUpdate,
     });
+
+    return { success: true };
+  },
+});
+
+// Mutation to update business info
+export const updateBusinessInfo = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get the authenticated user's identity
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be authenticated");
+    }
+
+    // Find the user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the business
+    const business = await ctx.db.get(args.businessId);
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Verify the user owns this business
+    if (business.userId !== user._id) {
+      throw new Error("User does not own this business");
+    }
+
+    // Build update object
+    const update: any = {};
+    if (args.name !== undefined) {
+      update.name = args.name;
+    }
+    if (args.description !== undefined) {
+      update.description = args.description;
+    }
+
+    // Update the business
+    await ctx.db.patch(args.businessId, update);
 
     return { success: true };
   },

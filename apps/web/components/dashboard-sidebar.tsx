@@ -5,13 +5,24 @@ import { usePathname } from "next/navigation";
 import { cn } from "@workspace/ui/lib/utils";
 import { useAtomValue } from "jotai";
 import { businessAtom } from "@/lib/store/auth-atoms";
-import { LayoutDashboard, Wrench, Calendar, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Wrench,
+  Calendar,
+  Settings,
+  CalendarClock,
+} from "lucide-react";
 
 const navigation = [
   {
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    name: "Citas",
+    href: "/citas",
+    icon: CalendarClock,
   },
   {
     name: "Servicios",

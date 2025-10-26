@@ -74,6 +74,7 @@ function buildSystemPrompt(
   - Si no tienes información, usa las herramientas disponibles para consultarla
   - Cuando el usuario pregunte por servicios, usa la herramienta get_services
   - Cuando el usuario pregunte por disponibilidad, usa get_available_slots
+  - Cuando el usuario pregunte por la próxima cita disponible o "cuándo puedo tener una cita", usa get_upcoming_appointments
   - Cuando tengas todos los datos para crear una cita, usa create_appointment
   
   CONTEXTO TEMPORAL:
@@ -212,6 +213,25 @@ export const sendMessage = action({
               details: params,
             };
           }
+        },
+      },
+      get_upcoming_appointments: {
+        description:
+          "Obtiene las próximas citas disponibles. " +
+          "Usa esta herramienta cuando el cliente pregunte por la próxima cita disponible o cuándo puede tener una cita.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const upcomingAppointments = await ctx.runQuery(
+            api.appointments.getUpcomingAppointments,
+            {
+              businessId: business._id,
+              limit: 10,
+            }
+          );
+          return {
+            appointments: upcomingAppointments,
+            count: upcomingAppointments.length,
+          };
         },
       },
     };

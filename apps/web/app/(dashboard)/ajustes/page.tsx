@@ -19,21 +19,46 @@ import {
 import toast from "react-hot-toast";
 import { getChatbotUrl } from "@/lib/utils/urls";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import { Send } from "lucide-react";
 
 export default function AjustesPage() {
   const business = useAtomValue(businessAtom);
   const updateVisualConfig = useMutation(api.businesses.updateVisualConfig);
+  const updateBusinessInfo = useMutation(api.businesses.updateBusinessInfo);
   const generateUploadUrl = useMutation(api.businesses.generateUploadUrl);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
-  const [theme, setTheme] = useState<"light" | "dark">(
-    business?.visualConfig?.theme || "light"
-  );
-  const [welcomeMessage, setWelcomeMessage] = useState(
-    business?.visualConfig?.welcomeMessage || ""
-  );
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [businessDescription, setBusinessDescription] = useState("");
+  const [originalBusinessName, setOriginalBusinessName] = useState("");
+  const [originalBusinessDescription, setOriginalBusinessDescription] =
+    useState("");
+  const [originalTheme, setOriginalTheme] = useState<"light" | "dark">("light");
+  const [originalWelcomeMessage, setOriginalWelcomeMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize values when business loads
+  useEffect(() => {
+    if (business) {
+      const name = business.name || "";
+      const desc = business.description || "";
+      const themeVal = business.visualConfig?.theme || "light";
+      const welcome = business.visualConfig?.welcomeMessage || "";
+
+      setBusinessName(name);
+      setBusinessDescription(desc);
+      setTheme(themeVal);
+      setWelcomeMessage(welcome);
+
+      setOriginalBusinessName(name);
+      setOriginalBusinessDescription(desc);
+      setOriginalTheme(themeVal);
+      setOriginalWelcomeMessage(welcome);
+    }
+  }, [business]);
 
   // Load logo URL when business changes
   useEffect(() => {
@@ -59,33 +84,84 @@ export default function AjustesPage() {
 
     setIsLoading(true);
     try {
-      let logoUrl: string | undefined = business.visualConfig?.logoUrl;
+      const hasBusinessInfoChanges =
+        businessName !== originalBusinessName ||
+        businessDescription !== originalBusinessDescription;
 
-      // Upload logo if selected
-      if (logoFile) {
-        const uploadUrl = await generateUploadUrl();
-        const uploadResult = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": logoFile.type },
-          body: logoFile,
-        });
+      const hasVisualConfigChanges =
+        theme !== originalTheme ||
+        welcomeMessage !== originalWelcomeMessage ||
+        logoFile !== null;
 
-        if (!uploadResult.ok) {
-          throw new Error("Error al subir el logo");
-        }
-
-        const { storageId } = await uploadResult.json();
-        logoUrl = storageId; // Store the storage ID directly
+      if (!hasBusinessInfoChanges && !hasVisualConfigChanges) {
+        toast("No hay cambios para guardar");
+        setIsLoading(false);
+        return;
       }
 
-      await updateVisualConfig({
-        businessId: business._id,
-        logoUrl: logoUrl as Id<"_storage">,
-        theme,
-        welcomeMessage: welcomeMessage || undefined,
-      });
+      // Update business info only if changed
+      if (hasBusinessInfoChanges) {
+        const updateData: { name?: string; description?: string } = {};
+        if (businessName !== originalBusinessName) {
+          updateData.name = businessName;
+        }
+        if (businessDescription !== originalBusinessDescription) {
+          updateData.description = businessDescription;
+        }
+        await updateBusinessInfo({
+          businessId: business._id,
+          ...updateData,
+        });
+      }
+
+      // Update visual config only if changed
+      if (hasVisualConfigChanges) {
+        const updateData: {
+          logoUrl?: Id<"_storage">;
+          theme?: "light" | "dark";
+          welcomeMessage?: string;
+        } = {};
+
+        // Upload logo if selected
+        if (logoFile) {
+          const uploadUrl = await generateUploadUrl();
+          const uploadResult = await fetch(uploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": logoFile.type },
+            body: logoFile,
+          });
+
+          if (!uploadResult.ok) {
+            throw new Error("Error al subir el logo");
+          }
+
+          const { storageId } = await uploadResult.json();
+          updateData.logoUrl = storageId as Id<"_storage">;
+        }
+
+        if (theme !== originalTheme) {
+          updateData.theme = theme;
+        }
+        if (welcomeMessage !== originalWelcomeMessage) {
+          updateData.welcomeMessage = welcomeMessage || undefined;
+        }
+
+        await updateVisualConfig({
+          businessId: business._id,
+          ...updateData,
+        });
+      }
 
       toast.success("Configuración actualizada exitosamente");
+
+      // Reset to new original values
+      setOriginalBusinessName(businessName);
+      setOriginalBusinessDescription(businessDescription);
+      setOriginalTheme(theme);
+      setOriginalWelcomeMessage(welcomeMessage);
+      setLogoFile(null);
+
+      window.location.reload(); // Reload to update the business atom
     } catch (error: any) {
       toast.error(error.message || "Error al actualizar configuración");
     } finally {
@@ -107,11 +183,52 @@ export default function AjustesPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Ajustes</h1>
         <p className="text-foreground/60 mt-2">
-          Personaliza la apariencia y configuración de tu chatbot
+          Gestiona la información y apariencia de tu chatbot
         </p>
       </div>
 
-      {/* Visual Configuration */}
+      {/* Business Info - First Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Información del Negocio</CardTitle>
+          <CardDescription>Información básica de tu negocio</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <Label htmlFor="businessName">Nombre del Negocio</Label>
+            <Input
+              id="businessName"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              className="mt-2"
+              placeholder="Nombre de tu negocio"
+            />
+          </div>
+          <div>
+            <Label htmlFor="businessDescription">Descripción</Label>
+            <Textarea
+              id="businessDescription"
+              value={businessDescription}
+              onChange={(e) => setBusinessDescription(e.target.value)}
+              rows={3}
+              className="mt-2"
+              placeholder="Describe brevemente tu negocio"
+            />
+          </div>
+          <div>
+            <Label>Subdominio</Label>
+            <Input value={business.subdomain} disabled className="mt-2" />
+            <p className="text-xs text-muted-foreground mt-1">
+              Tu chatbot está disponible en: {getChatbotUrl(business.subdomain)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              El subdominio no se puede modificar
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Visual Configuration - Second Section */}
       <Card>
         <CardHeader>
           <CardTitle>Configuración Visual</CardTitle>
@@ -173,45 +290,11 @@ export default function AjustesPage() {
               Este mensaje se mostrará cuando los usuarios abran el chat
             </p>
           </div>
-
-          <Button onClick={handleSave} disabled={isLoading}>
-            {isLoading ? "Guardando..." : "Guardar Cambios"}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* Business Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del Negocio</CardTitle>
-          <CardDescription>Información básica de tu negocio</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Nombre del Negocio</Label>
-            <Input value={business.name} disabled className="mt-2" />
-          </div>
-          <div>
-            <Label>Descripción</Label>
-            <Textarea
-              value={business.description || ""}
-              disabled
-              rows={3}
-              className="mt-2"
-            />
-          </div>
-          <div>
-            <Label>Subdominio</Label>
-            <Input value={business.subdomain} disabled className="mt-2" />
-            <p className="text-xs text-muted-foreground mt-1">
-              Tu chatbot está disponible en: {getChatbotUrl(business.subdomain)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Chatbot Preview */}
-      <Card>
+      {/* Preview - Third Section */}
+      {/* <Card>
         <CardHeader>
           <CardTitle>Vista Previa del Chatbot</CardTitle>
           <CardDescription>
@@ -219,35 +302,60 @@ export default function AjustesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="bg-muted rounded-lg p-4 max-w-md">
-            <div className="bg-white rounded-lg shadow-sm border">
-              {/* Chatbot header */}
-              <div
-                className={`p-4 border-b ${theme === "dark" ? "bg-card text-foreground" : "bg-card"}`}
-              >
-                <div className="flex items-center gap-3">
-                  {logoPreview && (
-                    <img
-                      src={logoPreview}
-                      alt="Logo"
-                      className="h-8 w-8 object-contain rounded"
-                    />
-                  )}
-                  <div>
-                    <h3 className="font-semibold">{business.name}</h3>
-                    <p className="text-xs opacity-75">En línea</p>
+          <div className="bg-background rounded-lg p-4 max-w-2xl border">
+            <div className={`${theme === "dark" ? "dark" : ""}`}>
+              <div className="border-b bg-card border-border">
+                <div className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {logoPreview && (
+                      <img
+                        src={logoPreview}
+                        alt="Logo"
+                        className="h-10 w-10 object-contain rounded bg-background p-1 border border-border"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-foreground truncate">
+                        {businessName || business.name}
+                      </h3>
+                      {businessDescription && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {businessDescription}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Chat messages */}
-              <div className="p-4 space-y-3">
-                <div className="bg-blue-500 text-foreground rounded-lg p-3 max-w-xs">
-                  {welcomeMessage || "¡Hola! ¿En qué puedo ayudarte hoy?"}
+              <div className="p-6 space-y-4">
+                <div className="flex justify-start">
+                  <div className="max-w-[75%] rounded-lg p-3 bg-muted">
+                    <p className="text-sm break-words">
+                      {welcomeMessage || "¡Hola! ¿En qué puedo ayudarte hoy?"}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500 text-center">
-                  Escribe un mensaje...
+              </div>
+
+              <div className="border-t border-border bg-card">
+                <div className="px-4 py-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground flex items-center">
+                      Escribe tu mensaje...
+                    </div>
+                    <Button size="icon" disabled>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+              </div>
+
+              <div className="border-t border-border bg-card px-4 py-2">
+                <p className="text-center text-xs text-muted-foreground">
+                  Powered by{" "}
+                  <span className="font-semibold text-primary">ChatOkay</span>
+                </p>
               </div>
             </div>
           </div>
@@ -264,7 +372,14 @@ export default function AjustesPage() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
+
+      {/* Save Button - Bottom */}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={isLoading} size="lg">
+          {isLoading ? "Guardando..." : "Guardar Cambios"}
+        </Button>
+      </div>
     </div>
   );
 }

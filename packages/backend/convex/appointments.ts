@@ -16,11 +16,26 @@ export const getAvailableSlots = query({
 
     // Get day of week from date
     const dateObj = new Date(args.date);
-    const dayOfWeek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+    const dayOfWeekEnglish = dateObj.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    // Map English day names to Spanish
+    const dayMap: Record<string, string> = {
+      Monday: "Lunes",
+      Tuesday: "Martes",
+      Wednesday: "Miércoles",
+      Thursday: "Jueves",
+      Friday: "Viernes",
+      Saturday: "Sábado",
+      Sunday: "Domingo",
+    };
+
+    const dayOfWeekSpanish = dayMap[dayOfWeekEnglish] || dayOfWeekEnglish;
 
     // Find availability for this day
     const dayAvailability = business.availability.find(
-      (av) => av.day.toLowerCase() === dayOfWeek.toLowerCase()
+      (av) => av.day.toLowerCase() === dayOfWeekSpanish.toLowerCase()
     );
 
     if (!dayAvailability || dayAvailability.slots.length === 0) {
@@ -72,6 +87,70 @@ export const getBusinessAppointments = query({
   },
 });
 
+// Query to get upcoming appointments for a business
+export const getUpcomingAppointments = query({
+  args: {
+    businessId: v.id("businesses"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const business = await ctx.db.get(args.businessId);
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Get all appointments
+    const allAppointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+
+    // Filter future appointments and sort by time
+    const upcomingAppointments = allAppointments
+      .filter((apt) => {
+        // Only show non-cancelled appointments
+        if (apt.status === "cancelled") return false;
+        // Include appointments happening now or in the future
+        return apt.appointmentTime >= nowISO;
+      })
+      .sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime))
+      .slice(0, args.limit || 10)
+      .map((apt) => {
+        // Calculate end time based on service duration
+        const service = business.appointmentConfig.services.find(
+          (s) => s.name === apt.serviceName
+        );
+        const duration = service?.duration || 60; // Default 60 minutes
+        const startTime = new Date(apt.appointmentTime);
+        const endTime = new Date(startTime.getTime() + duration * 60000);
+
+        // Check if appointment is currently in progress
+        const isInProgress =
+          startTime <= now && now <= endTime && apt.status !== "cancelled";
+
+        return {
+          _id: apt._id,
+          customerName: apt.customerData.name,
+          customerEmail: apt.customerData.email,
+          customerPhone: apt.customerData.phone,
+          appointmentTime: apt.appointmentTime,
+          serviceName: apt.serviceName,
+          status: apt.status,
+          notes: apt.notes,
+          isInProgress,
+          duration,
+          endTime: endTime.toISOString(),
+        };
+      });
+
+    return upcomingAppointments;
+  },
+});
+
 // Mutation to create a new appointment
 export const createAppointment = mutation({
   args: {
@@ -98,21 +177,36 @@ export const createAppointment = mutation({
     }
 
     const dateObj = new Date(date);
-    const dayOfWeek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+    const dayOfWeekEnglish = dateObj.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    // Map English day names to Spanish
+    const dayMap: Record<string, string> = {
+      Monday: "Lunes",
+      Tuesday: "Martes",
+      Wednesday: "Miércoles",
+      Thursday: "Jueves",
+      Friday: "Viernes",
+      Saturday: "Sábado",
+      Sunday: "Domingo",
+    };
+
+    const dayOfWeekSpanish = dayMap[dayOfWeekEnglish] || dayOfWeekEnglish;
 
     // Find availability for this day
     const dayAvailability = business.availability.find(
-      (av) => av.day.toLowerCase() === dayOfWeek.toLowerCase()
+      (av) => av.day.toLowerCase() === dayOfWeekSpanish.toLowerCase()
     );
 
     if (!dayAvailability) {
       throw new Error("No availability for this day");
     }
 
-    // Check if time slot exists
-    const slotExists = dayAvailability.slots.some(
-      (slot) => slot.start === time
-    );
+    // Check if time slot exists within any available slot range
+    const slotExists = dayAvailability.slots.some((slot) => {
+      return time >= slot.start && time < slot.end;
+    });
 
     if (!slotExists) {
       throw new Error("Time slot not available");

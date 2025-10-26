@@ -191,7 +191,7 @@ export default function ChatPage() {
     );
   }
 
-  const themeClass = theme === "dark" ? "dark" : "";
+  const themeClass = theme === "light" ? "light" : "dark";
 
   return (
     <div className={themeClass}>
