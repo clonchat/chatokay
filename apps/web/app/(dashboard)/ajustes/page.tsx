@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import toast from "react-hot-toast";
+import { getChatbotUrl } from "@/lib/utils/urls";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 export default function AjustesPage() {
   const business = useAtomValue(businessAtom);
@@ -24,9 +26,7 @@ export default function AjustesPage() {
   const generateUploadUrl = useMutation(api.businesses.generateUploadUrl);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string>(
-    business?.visualConfig?.logoUrl || ""
-  );
+  const [logoPreview, setLogoPreview] = useState<string>("");
   const [theme, setTheme] = useState<"light" | "dark">(
     business?.visualConfig?.theme || "light"
   );
@@ -34,6 +34,13 @@ export default function AjustesPage() {
     business?.visualConfig?.welcomeMessage || ""
   );
   const [isLoading, setIsLoading] = useState(false);
+
+  // Load logo URL when business changes
+  useEffect(() => {
+    if (business?.visualConfig?.logoUrl) {
+      setLogoPreview(business.visualConfig.logoUrl);
+    }
+  }, [business?.visualConfig?.logoUrl]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,12 +75,12 @@ export default function AjustesPage() {
         }
 
         const { storageId } = await uploadResult.json();
-        logoUrl = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+        logoUrl = storageId; // Store the storage ID directly
       }
 
       await updateVisualConfig({
         businessId: business._id,
-        logoUrl,
+        logoUrl: logoUrl as Id<"_storage">,
         theme,
         welcomeMessage: welcomeMessage || undefined,
       });
@@ -197,7 +204,7 @@ export default function AjustesPage() {
             <Label>Subdominio</Label>
             <Input value={business.subdomain} disabled className="mt-2" />
             <p className="text-xs text-muted-foreground mt-1">
-              Tu chatbot está disponible en: {business.subdomain}.chatokay.com
+              Tu chatbot está disponible en: {getChatbotUrl(business.subdomain)}
             </p>
           </div>
         </CardContent>
@@ -248,7 +255,7 @@ export default function AjustesPage() {
           <div className="mt-4">
             <Button asChild>
               <a
-                href={`https://${business.subdomain}.chatokay.com`}
+                href={getChatbotUrl(business.subdomain)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

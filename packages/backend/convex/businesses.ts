@@ -28,7 +28,70 @@ export const getCurrentUserBusiness = query({
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .first();
 
-    return business;
+    if (!business) {
+      return null;
+    }
+
+    // Get logo URL if it exists
+    let logoUrl: string | undefined;
+    if (business.visualConfig?.logoUrl) {
+      try {
+        const url = await ctx.storage.getUrl(business.visualConfig.logoUrl);
+        logoUrl = url || undefined;
+      } catch (error) {
+        console.error("Error getting logo URL:", error);
+        logoUrl = undefined;
+      }
+    }
+
+    return {
+      ...business,
+      visualConfig: {
+        ...business.visualConfig,
+        logoUrl,
+      },
+    };
+  },
+});
+
+// Public query to get a business by subdomain (no authentication required)
+export const getBySubdomain = query({
+  args: {
+    subdomain: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const business = await ctx.db
+      .query("businesses")
+      .withIndex("by_subdomain", (q) => q.eq("subdomain", args.subdomain))
+      .first();
+
+    if (!business) {
+      return null;
+    }
+
+    // Get logo URL if it exists
+    let logoUrl: string | undefined;
+    if (business.visualConfig?.logoUrl) {
+      try {
+        const url = await ctx.storage.getUrl(business.visualConfig.logoUrl);
+        logoUrl = url || undefined;
+      } catch (error) {
+        console.error("Error getting logo URL:", error);
+        logoUrl = undefined;
+      }
+    }
+
+    // Return only public information
+    return {
+      _id: business._id,
+      name: business.name,
+      description: business.description,
+      subdomain: business.subdomain,
+      theme: business.visualConfig?.theme,
+      logo: logoUrl,
+      welcomeMessage: business.visualConfig?.welcomeMessage,
+      services: business.appointmentConfig?.services || [],
+    };
   },
 });
 
@@ -209,7 +272,7 @@ export const updateAvailability = mutation({
 export const updateVisualConfig = mutation({
   args: {
     businessId: v.id("businesses"),
-    logoUrl: v.optional(v.string()),
+    logoUrl: v.optional(v.id("_storage")),
     theme: v.union(v.literal("light"), v.literal("dark")),
     welcomeMessage: v.optional(v.string()),
   },

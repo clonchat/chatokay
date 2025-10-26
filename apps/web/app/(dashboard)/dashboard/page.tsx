@@ -1,6 +1,8 @@
 "use client";
 
-import { useAtomValue } from "jotai";
+import { businessAtom } from "@/lib/store/auth-atoms";
+import { getChatbotUrl } from "@/lib/utils/urls";
+import { Button } from "@workspace/ui/components/button";
 import {
   Card,
   CardContent,
@@ -8,10 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { Button } from "@workspace/ui/components/button";
+import { useAtomValue } from "jotai";
+import { Bot, Calendar, ExternalLink, Settings, Wrench } from "lucide-react";
 import Link from "next/link";
-import { businessAtom } from "@/lib/store/auth-atoms";
-import { Bot, Wrench, Calendar, Settings, ExternalLink } from "lucide-react";
 
 export default function DashboardPage() {
   const business = useAtomValue(businessAtom);
@@ -52,12 +53,12 @@ export default function DashboardPage() {
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg border border-border">
                 <code className="text-sm break-all text-foreground/80">
-                  https://{business.subdomain}.chatokay.com
+                  {getChatbotUrl(business.subdomain)}
                 </code>
               </div>
               <Button asChild className="w-full">
                 <a
-                  href={`https://${business.subdomain}.chatokay.com`}
+                  href={getChatbotUrl(business.subdomain)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2"

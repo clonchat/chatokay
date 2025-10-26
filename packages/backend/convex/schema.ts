@@ -14,7 +14,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     subdomain: v.string(),
     visualConfig: v.object({
-      logoUrl: v.optional(v.string()),
+      logoUrl: v.optional(v.id("_storage")),
       theme: v.union(v.literal("light"), v.literal("dark")),
       welcomeMessage: v.optional(v.string()),
     }),

@@ -42,7 +42,7 @@ export function DashboardTopbar({
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    setTheme(theme === "light" ? "dark" : "light");
   };
 
   return (
@@ -110,7 +110,8 @@ export function DashboardTopbar({
           <DialogHeader>
             <DialogTitle>¿Cerrar sesión?</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que quieres cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder a tu dashboard.
+              ¿Estás seguro de que quieres cerrar sesión? Tendrás que iniciar
+              sesión nuevamente para acceder a tu dashboard.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
