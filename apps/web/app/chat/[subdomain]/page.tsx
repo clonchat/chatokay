@@ -7,6 +7,8 @@ import { Input } from "@workspace/ui/components/input";
 import { Send, Bot } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Business {
   _id: string;
@@ -230,9 +232,17 @@ export default function ChatPage() {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    <p className="text-sm sm:text-base break-words whitespace-pre-wrap">
-                      {msg.content}
-                    </p>
+                    {msg.role === "assistant" ? (
+                      <div className="text-sm sm:text-base break-words markdown-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm sm:text-base break-words whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
