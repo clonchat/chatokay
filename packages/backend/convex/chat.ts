@@ -66,16 +66,16 @@ function buildSystemPrompt(
   3. Agendar citas
   
   INSTRUCCIONES:
-  - Sé amable, profesional y conciso
+  - Sé amable y profesional.
+  - Devuelve el texto siempre en markdown, usa emojis para facilitar la lectura.
+  - Cuida la estructura y legibilidad del texto.
   - Pregunta por la información necesaria de forma natural
-  - Para agendar una cita necesitas: nombre del cliente, servicio, fecha y hora
-  - Opcionalmente puedes pedir email y teléfono para confirmaciones
-  - Confirma siempre los detalles antes de crear la cita
-  - Si no tienes información, usa las herramientas disponibles para consultarla
-  - Cuando el usuario pregunte por servicios, usa la herramienta get_services
-  - Cuando el usuario pregunte por disponibilidad, usa get_available_slots
+  - Para agendar una cita necesitas: nombre del cliente, email, teléfono (opcional), servicio, fecha y hora
+  - Antes de pedir los datos, ayuda al cliente a seleccionar el servicio y la fecha y hora.
+  - Cuando el usuario pregunte por servicios, SIEMPRE usa la herramienta get_services
+  - Cuando el usuario pregunte por disponibilidad, SIEMPRE usa get_available_slots
   - Cuando el usuario pregunte por la próxima cita disponible o "cuándo puedo tener una cita", usa get_upcoming_appointments
-  - Cuando tengas todos los datos para crear una cita, usa create_appointment
+  - Si no tienes información, usa las herramientas disponibles para consultarla
   
   CONTEXTO TEMPORAL:
   - Fecha de hoy: ${currentDate}
@@ -83,11 +83,22 @@ function buildSystemPrompt(
   - Cuando el usuario mencione días como "miércoles", "jueves", etc., calcula la fecha exacta
   - Los días de la semana en español son: lunes, martes, miércoles, jueves, viernes, sábado, domingo
   
-  IMPORTANTE:
-  - Siempre llama a get_services cuando te pregunten por los servicios
-  - Siempre llama a get_available_slots cuando te pregunten por disponibilidad
-  - Solo crea la cita cuando tengas todos los datos confirmados
-  - Recuerda contestar en formato markdown.
+  PROCESO PARA CREAR CITAS (MUY IMPORTANTE):
+  1. Primero usa get_services para obtener los nombres EXACTOS de los servicios disponibles
+  2. Ayuda al cliente a elegir un servicio usando el nombre EXACTO que obtuviste de get_services
+  3. Verifica disponibilidad con get_available_slots
+  4. Recopila todos los datos necesarios (nombre, email, servicio EXACTO, fecha y hora)
+  5. Confirma los detalles con el usuario preguntando "¿Es correcto?"
+  6. SOLO cuando el usuario confirme, llama a create_appointment con el nombre EXACTO del servicio
+  7. ESPERA la respuesta de create_appointment
+  8. Si create_appointment retorna success:true, entonces confirma al usuario que la cita fue creada
+  9. Si create_appointment retorna success:false o hay un error, informa al usuario del error específico
+  
+  REGLAS CRÍTICAS:
+  - NUNCA digas al usuario que la cita está confirmada/agendada/creada ANTES de llamar a create_appointment
+  - NUNCA digas al usuario que la cita está confirmada/agendada/creada si create_appointment no retornó success:true
+  - SIEMPRE usa el nombre EXACTO del servicio tal como lo retorna get_services
+  - Si create_appointment falla, explica el error al usuario y pide que verifique la información
   
   Responde en español de forma natural y conversacional.`;
 }
@@ -145,6 +156,7 @@ export const sendMessage = action({
           "Usa esta herramienta cuando el cliente pregunte qué servicios están disponibles.",
         inputSchema: z.object({}),
         execute: async () => {
+          console.log("using get_services tool");
           const businessData = await ctx.runQuery(
             api.businesses.getBySubdomain,
             { subdomain: args.subdomain }
@@ -161,6 +173,7 @@ export const sendMessage = action({
           "Retorna una lista de slots de tiempo disponibles para ese día.",
         inputSchema: getAvailableSlotsSchema,
         execute: async ({ date }: GetAvailableSlotsParams) => {
+          console.log("using get_available_slots tool");
           const slots = await ctx.runQuery(api.appointments.getAvailableSlots, {
             businessId: business._id,
             date,
@@ -169,6 +182,9 @@ export const sendMessage = action({
           const dayName = dateObj.toLocaleDateString("es-ES", {
             weekday: "long",
           });
+          console.log("Slots:", slots);
+          console.log("Date:", date);
+          console.log("Day Name:", dayName);
           return {
             date,
             dayName,
@@ -181,10 +197,14 @@ export const sendMessage = action({
       create_appointment: {
         description:
           "Crea una nueva cita para el cliente. " +
-          "Asegúrate de tener toda la información necesaria antes de llamar a esta función.",
+          "IMPORTANTE: Asegúrate de tener toda la información necesaria antes de llamar a esta función. " +
+          "Usa el nombre EXACTO del servicio tal como lo retorna get_services. " +
+          "Debes verificar el resultado de esta función antes de confirmar al usuario. " +
+          "Si success es false, NO digas al usuario que la cita fue creada.",
         inputSchema: createAppointmentSchema,
         execute: async (params: CreateAppointmentParams) => {
           try {
+            console.log("using create_appointment tool with params:", params);
             const appointmentId = await ctx.runMutation(
               api.appointments.createAppointment,
               {
@@ -197,19 +217,24 @@ export const sendMessage = action({
                 notes: params.notes,
               }
             );
+            console.log("Appointment created successfully:", appointmentId);
             return {
               success: true,
               appointmentId: appointmentId.toString(),
-              message: "Cita creada exitosamente",
+              message:
+                "¡Cita creada exitosamente! Puedes confirmar al usuario.",
               details: params,
             };
           } catch (error) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : "Error desconocido al crear la cita";
+            console.error("Error creating appointment:", errorMessage);
             return {
               success: false,
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Error al crear la cita",
+              error: errorMessage,
+              message: `No se pudo crear la cita. Error: ${errorMessage}`,
               details: params,
             };
           }
@@ -221,6 +246,7 @@ export const sendMessage = action({
           "Usa esta herramienta cuando el cliente pregunte por la próxima cita disponible o cuándo puede tener una cita.",
         inputSchema: z.object({}),
         execute: async () => {
+          console.log("using get_upcoming_appointments tool");
           const upcomingAppointments = await ctx.runQuery(
             api.appointments.getUpcomingAppointments,
             {
@@ -239,7 +265,7 @@ export const sendMessage = action({
     // Create agent instance with tools
     const agent = new Agent(components.agent, {
       name: `Agent for ${business.name}`,
-      languageModel: openrouter("minimax/minimax-m2:free"),
+      languageModel: openrouter("google/gemini-2.0-flash-001"),
       instructions: systemPrompt,
       tools,
       maxSteps: 5,

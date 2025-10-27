@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhook(.*)",
+  "/api/business(.*)",
   "/chat(.*)",
   "/privacy",
   "/terms",
@@ -43,16 +44,17 @@ export default clerkMiddleware(async (auth, request) => {
   const hostname = request.headers.get("host") || "";
   const subdomain = getSubdomain(hostname);
 
-  // If we're on a subdomain, rewrite to the chat page
-  if (subdomain && url.pathname === "/") {
-    const chatUrl = url.clone();
-    chatUrl.pathname = `/chat/${subdomain}`;
-    return NextResponse.rewrite(chatUrl);
-  }
+  // If we're on a subdomain, rewrite to the subdomain route structure
+  if (subdomain) {
+    // Don't rewrite API routes
+    if (url.pathname.startsWith("/api")) {
+      return NextResponse.next();
+    }
 
-  // If we're on a subdomain and accessing the chat route, allow it
-  if (subdomain && url.pathname.startsWith("/chat/")) {
-    return NextResponse.next();
+    // Rewrite the path to include the subdomain parameter
+    const chatUrl = url.clone();
+    chatUrl.pathname = `/${subdomain}${url.pathname}`;
+    return NextResponse.rewrite(chatUrl);
   }
 
   // Protect routes that require authentication (only on main domain)

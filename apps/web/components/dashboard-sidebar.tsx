@@ -84,11 +84,11 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                   </span>
                 </div>
               )}
-              <div>
-                <h1 className="text-lg font-semibold text-sidebar-foreground">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-semibold text-sidebar-foreground truncate">
                   {business?.name || "ChatOkay"}
                 </h1>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate">
                   {business?.subdomain}.chatokay.com
                 </p>
               </div>
@@ -112,8 +112,8 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
+                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </Link>
               );
             })}
