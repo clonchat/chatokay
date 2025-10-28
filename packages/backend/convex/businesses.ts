@@ -87,6 +87,7 @@ export const getBySubdomain = query({
       name: business.name,
       description: business.description,
       subdomain: business.subdomain,
+      phone: business.phone,
       theme: business.visualConfig?.theme,
       logo: logoUrl,
       welcomeMessage: business.visualConfig?.welcomeMessage,
@@ -111,6 +112,7 @@ export const create = mutation({
     name: v.string(),
     description: v.string(),
     subdomain: v.string(),
+    phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get the authenticated user's identity
@@ -156,6 +158,7 @@ export const create = mutation({
       name: args.name,
       description: args.description,
       subdomain: args.subdomain,
+      phone: args.phone,
       visualConfig: {
         theme: "light",
       },

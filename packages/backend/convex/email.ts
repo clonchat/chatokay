@@ -23,6 +23,9 @@ const getEmailTemplate = (params: {
   ownerNote?: string;
   chatbotUrl: string;
   rescheduledFrom?: string;
+  logoUrl?: string;
+  phone?: string;
+  cancellationToken?: string;
 }) => {
   const {
     customerName,
@@ -33,6 +36,9 @@ const getEmailTemplate = (params: {
     ownerNote,
     chatbotUrl,
     rescheduledFrom,
+    logoUrl,
+    phone,
+    cancellationToken,
   } = params;
 
   // Format date and time
@@ -42,7 +48,7 @@ const getEmailTemplate = (params: {
   });
   const formattedTime = format(aptDate, "HH:mm", { locale: es });
 
-  // Action-specific content
+  // Action-specific content (grayscale colors)
   let statusText = "";
   let statusColor = "";
   let actionMessage = "";
@@ -50,25 +56,25 @@ const getEmailTemplate = (params: {
   switch (actionType) {
     case "confirmed":
       statusText = "Confirmada";
-      statusColor = "#10b981";
+      statusColor = "#4B5563"; // Dark gray
       actionMessage = "Tu cita ha sido confirmada";
       break;
     case "cancelled":
       statusText = "Cancelada";
-      statusColor = "#ef4444";
+      statusColor = "#1F2937"; // Almost black
       actionMessage = "Tu cita ha sido cancelada";
       break;
     case "rescheduled":
       statusText = "Reprogramada";
-      statusColor = "#f59e0b";
+      statusColor = "#6B7280"; // Medium gray
       actionMessage = "Tu cita ha sido reprogramada";
       break;
   }
 
   const rescheduledInfo = rescheduledFrom
     ? `
-    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 16px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #92400e; font-size: 14px;">
+    <div style="background-color: #F3F4F6; border-left: 4px solid #6B7280; padding: 12px; margin: 16px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #374151; font-size: 14px;">
         <strong>Hora original:</strong> ${format(new Date(rescheduledFrom), "EEEE, d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
       </p>
     </div>
@@ -77,10 +83,26 @@ const getEmailTemplate = (params: {
 
   const ownerNoteSection = ownerNote
     ? `
-    <div style="margin-top: 20px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+    <div style="margin-top: 20px; padding: 16px; background-color: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB;">
       <h3 style="margin: 0 0 8px 0; color: #374151; font-size: 14px; font-weight: 600;">Nota del propietario:</h3>
-      <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.5;">${ownerNote}</p>
+      <p style="margin: 0; color: #6B7280; font-size: 14px; line-height: 1.5;">${ownerNote}</p>
     </div>
+    `
+    : "";
+
+  // Phone section for footer
+  const phoneSection = phone
+    ? `
+      <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
+        📞 <a href="tel:${phone}" style="color: #374151; text-decoration: none;">${phone}</a>
+      </p>
+    `
+    : "";
+
+  // Logo section for header
+  const logoSection = logoUrl
+    ? `
+      <img src="${logoUrl}" alt="${businessName}" style="height: 48px; width: auto; object-fit: contain; margin-bottom: 12px;" />
     `
     : "";
 
@@ -93,9 +115,10 @@ const getEmailTemplate = (params: {
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px 24px; text-align: center;">
-      <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">${businessName}</h1>
+    <!-- Header with Logo and Business Name -->
+    <div style="background-color: #F3F4F6; padding: 32px 24px; text-align: center; border-bottom: 2px solid #E5E7EB;">
+      ${logoSection}
+      <h1 style="margin: 0; color: #111827; font-size: 28px; font-weight: bold;">${businessName}</h1>
       <div style="margin-top: 16px; display: inline-block; background-color: ${statusColor}; color: #ffffff; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;">
         ${statusText}
       </div>
@@ -122,11 +145,11 @@ const getEmailTemplate = (params: {
       ${rescheduledInfo}
 
       <!-- Appointment Details -->
-      <div style="background-color: #f9fafb; border-radius: 12px; padding: 24px; margin: 24px 0; border: 1px solid #e5e7eb;">
+      <div style="background-color: #F9FAFB; border-radius: 12px; padding: 24px; margin: 24px 0; border: 1px solid #E5E7EB;">
         <h3 style="margin: 0 0 16px 0; color: #111827; font-size: 18px; font-weight: 600;">Detalles de la cita</h3>
         
         <div style="margin-bottom: 12px;">
-          <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Servicio</div>
+          <div style="color: #6B7280; font-size: 14px; margin-bottom: 4px;">Servicio</div>
           <div style="color: #111827; font-size: 16px; font-weight: 500;">${serviceName}</div>
         </div>
 
@@ -134,12 +157,12 @@ const getEmailTemplate = (params: {
           actionType !== "cancelled"
             ? `
         <div style="margin-bottom: 12px;">
-          <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Fecha</div>
+          <div style="color: #6B7280; font-size: 14px; margin-bottom: 4px;">Fecha</div>
           <div style="color: #111827; font-size: 16px; font-weight: 500; text-transform: capitalize;">${formattedDate}</div>
         </div>
 
         <div>
-          <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Hora</div>
+          <div style="color: #6B7280; font-size: 14px; margin-bottom: 4px;">Hora</div>
           <div style="color: #111827; font-size: 16px; font-weight: 500;">${formattedTime}</div>
         </div>
         `
@@ -150,29 +173,30 @@ const getEmailTemplate = (params: {
       ${ownerNoteSection}
 
       ${
-        actionType !== "cancelled"
+        actionType !== "cancelled" && cancellationToken
           ? `
-      <!-- CTA Button -->
+      <!-- Cancel Appointment Button -->
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${chatbotUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-          Ver mis citas
+        <a href="https://${process.env.CONVEX_SITE_URL || "chatokay.com"}/cancel-appointment?token=${cancellationToken}" style="display: inline-block; background-color: #1F2937; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          Cancelar mi cita
         </a>
       </div>
       `
           : ""
       }
 
-      <p style="margin: 24px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
+      <p style="margin: 24px 0 0 0; color: #6B7280; font-size: 14px; line-height: 1.5;">
         Si tienes alguna pregunta, puedes contactarnos a través de nuestro chatbot o responder a este correo.
       </p>
     </div>
 
-    <!-- Footer -->
-    <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-      <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+    <!-- Footer with Phone -->
+    <div style="background-color: #F9FAFB; padding: 24px; text-align: center; border-top: 1px solid #E5E7EB;">
+      <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 14px;">
         ${businessName}
       </p>
-      <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+      ${phoneSection}
+      <p style="margin: 8px 0 0 0; color: #9CA3AF; font-size: 12px;">
         Powered by ChatOkay
       </p>
     </div>
@@ -198,6 +222,9 @@ export const sendAppointmentEmail = internalAction({
     ),
     ownerNote: v.optional(v.string()),
     rescheduledFrom: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    cancellationToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     try {
@@ -230,6 +257,9 @@ export const sendAppointmentEmail = internalAction({
         ownerNote: args.ownerNote,
         chatbotUrl,
         rescheduledFrom: args.rescheduledFrom,
+        logoUrl: args.logoUrl,
+        phone: args.phone,
+        cancellationToken: args.cancellationToken,
       });
 
       // Send email

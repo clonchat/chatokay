@@ -81,6 +81,7 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [subdomain, setSubdomain] = useState("");
+  const [phone, setPhone] = useState("");
 
   // Step 2: Visual Configuration
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -194,7 +195,12 @@ export default function OnboardingPage() {
 
     setIsLoading(true);
     try {
-      const id = await createBusiness({ name, description, subdomain });
+      const id = await createBusiness({
+        name,
+        description,
+        subdomain,
+        phone,
+      });
       setBusinessId(id);
       toast.success("Negocio creado exitosamente");
       setStep(2);
@@ -436,6 +442,19 @@ export default function OnboardingPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Tu chatbot estará en: {subdomain || "minegocio"}.chatokay.com
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="phone">Número de Teléfono (Opcional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 234 567 8900"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Los clientes podrán ver este número para contactarte
                 </p>
               </div>
               <Button type="submit" disabled={isLoading} className="w-full">

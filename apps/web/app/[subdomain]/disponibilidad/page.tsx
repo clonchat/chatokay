@@ -14,7 +14,7 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useSidebar } from "../layout";
+import { useSidebar } from "../context";
 
 export default function DisponibilidadPage() {
   const params = useParams();

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useParams } from "next/navigation";
 import { cn } from "@workspace/ui/lib/utils";
-import { MessageSquare, ShoppingBag, Calendar } from "lucide-react";
+import { Calendar, MessageSquare, ShoppingBag } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface CustomerSidebarProps {
   isOpen: boolean;

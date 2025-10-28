@@ -13,7 +13,7 @@ import {
 import { useQuery } from "convex/react";
 import { Menu } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useSidebar } from "../layout";
+import { useSidebar } from "../context";
 
 interface Service {
   id: string;

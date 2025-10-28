@@ -33,9 +33,11 @@ export default function AjustesPage() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
   const [originalBusinessName, setOriginalBusinessName] = useState("");
   const [originalBusinessDescription, setOriginalBusinessDescription] =
     useState("");
+  const [originalBusinessPhone, setOriginalBusinessPhone] = useState("");
   const [originalTheme, setOriginalTheme] = useState<"light" | "dark">("light");
   const [originalWelcomeMessage, setOriginalWelcomeMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -45,16 +47,19 @@ export default function AjustesPage() {
     if (business) {
       const name = business.name || "";
       const desc = business.description || "";
+      const phone = business.phone || "";
       const themeVal = business.visualConfig?.theme || "light";
       const welcome = business.visualConfig?.welcomeMessage || "";
 
       setBusinessName(name);
       setBusinessDescription(desc);
+      setBusinessPhone(phone);
       setTheme(themeVal);
       setWelcomeMessage(welcome);
 
       setOriginalBusinessName(name);
       setOriginalBusinessDescription(desc);
+      setOriginalBusinessPhone(phone);
       setOriginalTheme(themeVal);
       setOriginalWelcomeMessage(welcome);
     }
@@ -86,7 +91,8 @@ export default function AjustesPage() {
     try {
       const hasBusinessInfoChanges =
         businessName !== originalBusinessName ||
-        businessDescription !== originalBusinessDescription;
+        businessDescription !== originalBusinessDescription ||
+        businessPhone !== originalBusinessPhone;
 
       const hasVisualConfigChanges =
         theme !== originalTheme ||
@@ -101,12 +107,19 @@ export default function AjustesPage() {
 
       // Update business info only if changed
       if (hasBusinessInfoChanges) {
-        const updateData: { name?: string; description?: string } = {};
+        const updateData: {
+          name?: string;
+          description?: string;
+          phone?: string;
+        } = {};
         if (businessName !== originalBusinessName) {
           updateData.name = businessName;
         }
         if (businessDescription !== originalBusinessDescription) {
           updateData.description = businessDescription;
+        }
+        if (businessPhone !== originalBusinessPhone) {
+          updateData.phone = businessPhone;
         }
         await updateBusinessInfo({
           businessId: business._id,
@@ -157,6 +170,7 @@ export default function AjustesPage() {
       // Reset to new original values
       setOriginalBusinessName(businessName);
       setOriginalBusinessDescription(businessDescription);
+      setOriginalBusinessPhone(businessPhone);
       setOriginalTheme(theme);
       setOriginalWelcomeMessage(welcomeMessage);
       setLogoFile(null);
@@ -214,6 +228,20 @@ export default function AjustesPage() {
               className="mt-2"
               placeholder="Describe brevemente tu negocio"
             />
+          </div>
+          <div>
+            <Label htmlFor="businessPhone">Número de Teléfono (Opcional)</Label>
+            <Input
+              id="businessPhone"
+              type="tel"
+              value={businessPhone}
+              onChange={(e) => setBusinessPhone(e.target.value)}
+              className="mt-2"
+              placeholder="+1 234 567 8900"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Los clientes podrán ver este número para contactarte
+            </p>
           </div>
           <div>
             <Label>Subdominio</Label>

@@ -1,7 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
-import { useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import {
   Card,
@@ -9,10 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { Button } from "@workspace/ui/components/button";
-import { Clock, Mail, Phone, User } from "lucide-react";
+import { useQuery } from "convex/react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Clock } from "lucide-react";
+import { useMemo } from "react";
 
 interface AppointmentsSidebarProps {
   businessId: string;

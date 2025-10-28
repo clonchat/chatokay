@@ -9,6 +9,7 @@ import { Bell } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { AppointmentDetailModal } from "./appointment-detail-modal";
 
 interface NotificationsDropdownProps {
   businessId: Id<"businesses">;
@@ -21,12 +22,20 @@ export function NotificationsDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [previousCount, setPreviousCount] = useState(0);
   const [animate, setAnimate] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] =
+    useState<Id<"appointments"> | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Get pending appointments
   const pendingAppointments = useQuery(
     api.appointments.getPendingAppointments,
     { businessId, limit: 5 }
   );
+
+  // Get all appointments to get full details when clicking
+  const allAppointments = useQuery(api.appointments.getBusinessAppointments, {
+    businessId,
+  });
 
   const pendingCount = pendingAppointments?.length || 0;
 
@@ -39,11 +48,30 @@ export function NotificationsDropdown({
     setPreviousCount(pendingCount);
   }, [pendingCount]);
 
-  const handleAppointmentClick = (appointmentId: string) => {
+  const handleAppointmentClick = (appointmentId: Id<"appointments">) => {
     setIsOpen(false);
-    // Navigate to citas page with the appointment ID as a query param
-    router.push(`/citas?appointmentId=${appointmentId}`);
+    setSelectedAppointmentId(appointmentId);
+    setIsModalOpen(true);
   };
+
+  // Get the selected appointment details
+  const selectedAppointment = allAppointments?.find(
+    (apt) => apt._id === selectedAppointmentId
+  );
+
+  // Convert to format expected by modal
+  const modalAppointment = selectedAppointment
+    ? {
+        _id: selectedAppointment._id,
+        customerName: selectedAppointment.customerData.name,
+        customerEmail: selectedAppointment.customerData.email,
+        customerPhone: selectedAppointment.customerData.phone,
+        appointmentTime: selectedAppointment.appointmentTime,
+        serviceName: selectedAppointment.serviceName,
+        status: selectedAppointment.status,
+        notes: selectedAppointment.notes,
+      }
+    : null;
 
   const formatAppointmentTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -150,7 +178,17 @@ export function NotificationsDropdown({
           </div>
         </>
       )}
+
+      {/* Appointment Detail Modal */}
+      <AppointmentDetailModal
+        appointment={modalAppointment}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedAppointmentId(null);
+        }}
+        businessId={businessId}
+      />
     </div>
   );
 }
-

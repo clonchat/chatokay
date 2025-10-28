@@ -2,43 +2,10 @@
 
 import { CustomerSidebar } from "@/components/customer-sidebar";
 import { useParams } from "next/navigation";
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
-import type { Id } from "@workspace/backend/_generated/dataModel";
-
-interface Business {
-  _id: string | Id<"businesses">;
-  name: string;
-  description?: string;
-  subdomain: string;
-  theme?: string;
-  logo?: string;
-  welcomeMessage?: string;
-  services?: Array<{
-    id: string;
-    name: string;
-    duration: number;
-    price?: number;
-  }>;
-}
-
-interface SubdomainContextType {
-  toggleSidebar: () => void;
-  business: Business | null;
-}
-
-export const SubdomainContext = createContext<SubdomainContextType | null>(
-  null
-);
-
-export const useSidebar = () => {
-  const context = useContext(SubdomainContext);
-  if (!context) {
-    throw new Error("useSidebar must be used within SubdomainLayout");
-  }
-  return context;
-};
+import { SubdomainContext } from "./context";
 
 export default function SubdomainLayout({
   children,

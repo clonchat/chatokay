@@ -9,7 +9,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useSidebar } from "./layout";
+import { useSidebar } from "./context";
 
 export default function ChatPage() {
   const params = useParams();
@@ -249,6 +249,17 @@ export default function ChatPage() {
       {/* Footer */}
       <footer className="border-t border-border bg-card">
         <div className="max-w-4xl mx-auto px-4 py-2">
+          {business.phone && (
+            <p className="text-center text-xs text-muted-foreground mb-1">
+              📞{" "}
+              <a
+                href={`tel:${business.phone}`}
+                className="text-foreground hover:text-primary"
+              >
+                {business.phone}
+              </a>
+            </p>
+          )}
           <p className="text-center text-xs text-muted-foreground">
             Powered by{" "}
             <a

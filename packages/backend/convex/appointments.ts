@@ -600,7 +600,18 @@ export const cancelAppointment = action({
 
     // Send email if customer has email
     if (appointment.customerData.email) {
-      // @ts-expect-error - email module exists but type generation is delayed
+      // Get logo URL if it exists
+      let logoUrl: string | undefined;
+      if (business.visualConfig?.logoUrl) {
+        try {
+          logoUrl =
+            (await ctx.storage.getUrl(business.visualConfig.logoUrl)) ??
+            undefined;
+        } catch (error) {
+          console.error("Error getting logo URL:", error);
+        }
+      }
+
       await ctx.runAction(internal.email.sendAppointmentEmail, {
         customerEmail: appointment.customerData.email,
         customerName: appointment.customerData.name,
@@ -610,6 +621,9 @@ export const cancelAppointment = action({
         appointmentTime: appointment.appointmentTime,
         actionType: "cancelled" as const,
         ownerNote: args.ownerNote,
+        logoUrl,
+        phone: business.phone,
+        cancellationToken: appointment.cancellationToken,
       });
     }
 
@@ -682,7 +696,18 @@ export const confirmAppointment = action({
 
     // Send email if customer has email
     if (appointment.customerData.email) {
-      // @ts-expect-error - email module exists but type generation is delayed
+      // Get logo URL if it exists
+      let logoUrl: string | undefined;
+      if (business.visualConfig?.logoUrl) {
+        try {
+          logoUrl =
+            (await ctx.storage.getUrl(business.visualConfig.logoUrl)) ??
+            undefined;
+        } catch (error) {
+          console.error("Error getting logo URL:", error);
+        }
+      }
+
       await ctx.runAction(internal.email.sendAppointmentEmail, {
         customerEmail: appointment.customerData.email,
         customerName: appointment.customerData.name,
@@ -692,6 +717,9 @@ export const confirmAppointment = action({
         appointmentTime: appointment.appointmentTime,
         actionType: "confirmed" as const,
         ownerNote: args.ownerNote,
+        logoUrl,
+        phone: business.phone,
+        cancellationToken: appointment.cancellationToken,
       });
     }
 
@@ -877,7 +905,18 @@ export const rescheduleAppointment = action({
 
     // Send email if customer has email
     if (appointment.customerData.email) {
-      // @ts-expect-error - email module exists but type generation is delayed
+      // Get logo URL if it exists
+      let logoUrl: string | undefined;
+      if (business.visualConfig?.logoUrl) {
+        try {
+          logoUrl =
+            (await ctx.storage.getUrl(business.visualConfig.logoUrl)) ??
+            undefined;
+        } catch (error) {
+          console.error("Error getting logo URL:", error);
+        }
+      }
+
       await ctx.runAction(internal.email.sendAppointmentEmail, {
         customerEmail: appointment.customerData.email,
         customerName: appointment.customerData.name,
@@ -888,6 +927,9 @@ export const rescheduleAppointment = action({
         actionType: "rescheduled" as const,
         ownerNote: args.ownerNote,
         rescheduledFrom: originalTime,
+        logoUrl,
+        phone: business.phone,
+        cancellationToken: appointment.cancellationToken,
       });
     }
 

@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { api } from "@workspace/backend/_generated/api";
+import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "@workspace/ui/components/tabs";
-import { Badge } from "@workspace/ui/components/badge";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery } from "convex/react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useQuery } from "convex/react";
-import { api } from "@workspace/backend/_generated/api";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
 
 interface Service {
   id: string;
@@ -35,9 +35,10 @@ interface WeeklyAvailability {
 interface ChatSidebarProps {
   services: Service[];
   businessId: string;
+  phone?: string;
 }
 
-export function ChatSidebar({ services, businessId }: ChatSidebarProps) {
+export function ChatSidebar({ services, businessId, phone }: ChatSidebarProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
 
   // Get Monday of the current week
@@ -91,8 +92,8 @@ export function ChatSidebar({ services, businessId }: ChatSidebarProps) {
   };
 
   return (
-    <aside className="w-full md:w-80 h-[calc(100vh-80px)] overflow-y-auto bg-card border-r border-border p-4">
-      <Tabs defaultValue="services" className="w-full">
+    <aside className="w-full md:w-80 h-[calc(100vh-80px)] overflow-y-auto bg-card border-r border-border p-4 flex flex-col">
+      <Tabs defaultValue="services" className="w-full flex-1">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="services">Servicios</TabsTrigger>
           <TabsTrigger value="availability">Disponibilidad</TabsTrigger>
@@ -219,6 +220,19 @@ export function ChatSidebar({ services, businessId }: ChatSidebarProps) {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Phone Number Section */}
+      {phone && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <a
+            href={`tel:${phone}`}
+            className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+          >
+            <span className="text-lg">📞</span>
+            <span>{phone}</span>
+          </a>
+        </div>
+      )}
     </aside>
   );
 }

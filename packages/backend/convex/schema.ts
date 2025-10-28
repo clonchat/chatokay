@@ -13,6 +13,7 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     subdomain: v.string(),
+    phone: v.optional(v.string()),
     visualConfig: v.object({
       logoUrl: v.optional(v.id("_storage")),
       theme: v.union(v.literal("light"), v.literal("dark")),
@@ -55,5 +56,8 @@ export default defineSchema({
     notes: v.optional(v.string()),
     ownerNote: v.optional(v.string()),
     rescheduledFrom: v.optional(v.string()),
-  }).index("by_business_id", ["businessId"]),
+    cancellationToken: v.optional(v.string()),
+  })
+    .index("by_business_id", ["businessId"])
+    .index("by_cancellation_token", ["cancellationToken"]),
 });
