@@ -517,6 +517,9 @@ export const createAppointment = mutation({
       throw new Error("This time slot conflicts with an existing appointment");
     }
 
+    // Generate unique cancellation token
+    const cancellationToken = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
     // Create the appointment
     const appointmentId = await ctx.db.insert("appointments", {
       businessId: args.businessId,
@@ -529,6 +532,7 @@ export const createAppointment = mutation({
       serviceName: args.serviceName,
       status: "pending",
       notes: args.notes,
+      cancellationToken,
     });
 
     return appointmentId;
@@ -635,6 +639,7 @@ export const cancelAppointment = action({
         ownerNote: args.ownerNote,
         logoUrl,
         phone: business.phone,
+        email: business.email,
         cancellationToken: appointment.cancellationToken,
       });
     }
@@ -659,9 +664,15 @@ export const confirmAppointmentMutation = internalMutation({
       throw new Error("Appointment not found");
     }
 
+    // Generate cancellation token if it doesn't exist
+    const cancellationToken =
+      appointment.cancellationToken ||
+      `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
     await ctx.db.patch(args.appointmentId, {
       status: "confirmed",
       ownerNote: args.ownerNote,
+      cancellationToken,
     });
 
     return { success: true, appointment };
@@ -706,8 +717,16 @@ export const confirmAppointment = action({
         ownerNote: args.ownerNote,
       });
 
+    // Get updated appointment with cancellation token
+    const updatedAppointment = await ctx.runQuery(
+      internal.appointments.getAppointmentById,
+      {
+        appointmentId: args.appointmentId,
+      }
+    );
+
     // Send email if customer has email
-    if (appointment.customerData.email) {
+    if (updatedAppointment && updatedAppointment.customerData.email) {
       // Get logo URL if it exists
       let logoUrl: string | undefined;
       if (business.visualConfig?.logoUrl) {
@@ -721,17 +740,18 @@ export const confirmAppointment = action({
       }
 
       await ctx.runAction(internal.email.sendAppointmentEmail, {
-        customerEmail: appointment.customerData.email,
-        customerName: appointment.customerData.name,
+        customerEmail: updatedAppointment.customerData.email,
+        customerName: updatedAppointment.customerData.name,
         businessName: business.name,
         subdomain: business.subdomain,
-        serviceName: appointment.serviceName,
-        appointmentTime: appointment.appointmentTime,
+        serviceName: updatedAppointment.serviceName,
+        appointmentTime: updatedAppointment.appointmentTime,
         actionType: "confirmed" as const,
         ownerNote: args.ownerNote,
         logoUrl,
         phone: business.phone,
-        cancellationToken: appointment.cancellationToken,
+        email: business.email,
+        cancellationToken: updatedAppointment.cancellationToken,
       });
     }
 
@@ -911,12 +931,18 @@ export const rescheduleAppointmentMutation = internalMutation({
       throw new Error("This time slot conflicts with an existing appointment");
     }
 
+    // Generate cancellation token if it doesn't exist
+    const cancellationToken =
+      appointment.cancellationToken ||
+      `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
     // Update the appointment
     await ctx.db.patch(args.appointmentId, {
       rescheduledFrom: appointment.appointmentTime,
       appointmentTime: args.newAppointmentTime,
       ownerNote: args.ownerNote,
       status: "confirmed", // Auto-confirm when rescheduled by owner
+      cancellationToken,
     });
 
     return { success: true, appointment };
@@ -982,18 +1008,30 @@ export const rescheduleAppointment = action({
         }
       );
 
+    // Get updated appointment with cancellation token
+    const updatedAppointment = await ctx.runQuery(
+      internal.appointments.getAppointmentById,
+      {
+        appointmentId: args.appointmentId,
+      }
+    );
+
     // Update Google Calendar event if exists
-    if (appointment.googleCalendarEventId && business?.googleCalendarEnabled) {
+    if (
+      updatedAppointment &&
+      updatedAppointment.googleCalendarEventId &&
+      business?.googleCalendarEnabled
+    ) {
       try {
         // Find the service to get duration
         const service = business.appointmentConfig.services.find(
-          (s) => s.name === appointment.serviceName
+          (s) => s.name === updatedAppointment.serviceName
         );
         const duration = service?.duration || 60;
 
         await ctx.runAction(internal.googleCalendar.updateCalendarEvent, {
-          businessId: appointment.businessId,
-          eventId: appointment.googleCalendarEventId,
+          businessId: updatedAppointment.businessId,
+          eventId: updatedAppointment.googleCalendarEventId,
           startTime: args.newAppointmentTime,
           duration: duration,
         });
@@ -1003,7 +1041,7 @@ export const rescheduleAppointment = action({
     }
 
     // Send email if customer has email
-    if (appointment.customerData.email) {
+    if (updatedAppointment && updatedAppointment.customerData.email) {
       // Get logo URL if it exists
       let logoUrl: string | undefined;
       if (business.visualConfig?.logoUrl) {
@@ -1017,21 +1055,161 @@ export const rescheduleAppointment = action({
       }
 
       await ctx.runAction(internal.email.sendAppointmentEmail, {
-        customerEmail: appointment.customerData.email,
-        customerName: appointment.customerData.name,
+        customerEmail: updatedAppointment.customerData.email,
+        customerName: updatedAppointment.customerData.name,
         businessName: business.name,
         subdomain: business.subdomain,
-        serviceName: appointment.serviceName,
+        serviceName: updatedAppointment.serviceName,
         appointmentTime: args.newAppointmentTime,
         actionType: "rescheduled" as const,
         ownerNote: args.ownerNote,
         rescheduledFrom: originalTime,
         logoUrl,
         phone: business.phone,
+        email: business.email,
+        cancellationToken: updatedAppointment.cancellationToken,
+      });
+    }
+
+    return result;
+  },
+});
+
+// Query to get appointment by cancellation token
+export const getAppointmentByToken = query({
+  args: {
+    cancellationToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const appointment = await ctx.db
+      .query("appointments")
+      .withIndex("by_cancellation_token", (q) =>
+        q.eq("cancellationToken", args.cancellationToken)
+      )
+      .first();
+
+    if (!appointment) {
+      return null;
+    }
+
+    // Get business details
+    const business = await ctx.db.get(appointment.businessId);
+
+    return {
+      appointment,
+      business,
+    };
+  },
+});
+
+// Action to cancel appointment by token (public endpoint)
+export const cancelAppointmentByToken = action({
+  args: {
+    cancellationToken: v.string(),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
+    // Get appointment by token
+    const appointmentData:
+      | { appointment: any; business: any }
+      | null
+      | undefined = await ctx.runQuery(
+      internal.appointments.getAppointmentByTokenInternal,
+      {
+        cancellationToken: args.cancellationToken,
+      }
+    );
+
+    if (!appointmentData || !appointmentData.appointment) {
+      throw new Error("Appointment not found or invalid token");
+    }
+
+    const { appointment, business }: { appointment: any; business: any } =
+      appointmentData;
+
+    // Check if appointment is already cancelled
+    if (appointment.status === "cancelled") {
+      throw new Error("Appointment is already cancelled");
+    }
+
+    // Cancel the appointment
+    const result: { success: boolean; appointment: any } =
+      await ctx.runMutation(internal.appointments.cancelAppointmentMutation, {
+        appointmentId: appointment._id,
+        ownerNote: "Cancelado por el cliente desde el correo electrónico",
+      });
+
+    // Delete from Google Calendar if exists
+    if (appointment.googleCalendarEventId && business?.googleCalendarEnabled) {
+      try {
+        await ctx.runAction(internal.googleCalendar.deleteCalendarEvent, {
+          businessId: appointment.businessId,
+          eventId: appointment.googleCalendarEventId,
+        });
+      } catch (error) {
+        console.error("Failed to delete from Google Calendar:", error);
+      }
+    }
+
+    // Send email if customer has email
+    if (appointment.customerData.email) {
+      // Get logo URL if it exists
+      let logoUrl: string | undefined;
+      if (business.visualConfig?.logoUrl) {
+        try {
+          logoUrl =
+            (await ctx.storage.getUrl(business.visualConfig.logoUrl)) ||
+            undefined;
+        } catch (error) {
+          console.error("Error getting logo URL:", error);
+        }
+      }
+
+      await ctx.runAction(internal.email.sendAppointmentEmail, {
+        customerEmail: appointment.customerData.email,
+        customerName: appointment.customerData.name,
+        businessName: business.name,
+        subdomain: business.subdomain,
+        serviceName: appointment.serviceName,
+        appointmentTime: appointment.appointmentTime,
+        actionType: "cancelled" as const,
+        ownerNote: "Cancelado por el cliente desde el correo electrónico",
+        logoUrl,
+        phone: business.phone,
+        email: business.email,
         cancellationToken: appointment.cancellationToken,
       });
     }
 
     return result;
+  },
+});
+
+// Internal query to get appointment by token (for action)
+export const getAppointmentByTokenInternal = internalQuery({
+  args: {
+    cancellationToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const appointment = await ctx.db
+      .query("appointments")
+      .withIndex("by_cancellation_token", (q) =>
+        q.eq("cancellationToken", args.cancellationToken)
+      )
+      .first();
+
+    if (!appointment) {
+      return null;
+    }
+
+    // Get business details
+    const business = await ctx.db.get(appointment.businessId);
+
+    return {
+      appointment,
+      business,
+    };
   },
 });

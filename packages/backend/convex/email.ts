@@ -25,6 +25,7 @@ const getEmailTemplate = (params: {
   rescheduledFrom?: string;
   logoUrl?: string;
   phone?: string;
+  email?: string;
   cancellationToken?: string;
 }) => {
   const {
@@ -38,6 +39,7 @@ const getEmailTemplate = (params: {
     rescheduledFrom,
     logoUrl,
     phone,
+    email,
     cancellationToken,
   } = params;
 
@@ -48,25 +50,29 @@ const getEmailTemplate = (params: {
   });
   const formattedTime = format(aptDate, "HH:mm", { locale: es });
 
-  // Action-specific content (grayscale colors)
+  // Action-specific content with colors and icons
   let statusText = "";
   let statusColor = "";
+  let statusIcon = "";
   let actionMessage = "";
 
   switch (actionType) {
     case "confirmed":
       statusText = "Confirmada";
-      statusColor = "#4B5563"; // Dark gray
+      statusColor = "#16A34A"; // Green
+      statusIcon = "✓";
       actionMessage = "Tu cita ha sido confirmada";
       break;
     case "cancelled":
       statusText = "Cancelada";
-      statusColor = "#1F2937"; // Almost black
+      statusColor = "#DC2626"; // Red
+      statusIcon = "✗";
       actionMessage = "Tu cita ha sido cancelada";
       break;
     case "rescheduled":
       statusText = "Reprogramada";
-      statusColor = "#6B7280"; // Medium gray
+      statusColor = "#EAB308"; // Yellow/Amber
+      statusIcon = "🕐";
       actionMessage = "Tu cita ha sido reprogramada";
       break;
   }
@@ -90,11 +96,19 @@ const getEmailTemplate = (params: {
     `
     : "";
 
-  // Phone section for footer
+  // Contact section for footer
   const phoneSection = phone
     ? `
       <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
         📞 <a href="tel:${phone}" style="color: #374151; text-decoration: none;">${phone}</a>
+      </p>
+    `
+    : "";
+
+  const emailSection = email
+    ? `
+      <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
+        ✉️ <a href="mailto:${email}" style="color: #374151; text-decoration: none;">${email}</a>
       </p>
     `
     : "";
@@ -120,7 +134,7 @@ const getEmailTemplate = (params: {
       ${logoSection}
       <h1 style="margin: 0; color: #111827; font-size: 28px; font-weight: bold;">${businessName}</h1>
       <div style="margin-top: 16px; display: inline-block; background-color: ${statusColor}; color: #ffffff; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;">
-        ${statusText}
+        ${statusIcon} ${statusText}
       </div>
     </div>
 
@@ -177,7 +191,7 @@ const getEmailTemplate = (params: {
           ? `
       <!-- Cancel Appointment Button -->
       <div style="text-align: center; margin: 32px 0;">
-        <a href="https://${process.env.CONVEX_SITE_URL || "chatokay.com"}/cancel-appointment?token=${cancellationToken}" style="display: inline-block; background-color: #1F2937; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+        <a href="https://chatokay.com/cancel-appointment?token=${cancellationToken}" style="display: inline-block; background-color: #1F2937; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
           Cancelar mi cita
         </a>
       </div>
@@ -190,12 +204,13 @@ const getEmailTemplate = (params: {
       </p>
     </div>
 
-    <!-- Footer with Phone -->
+    <!-- Footer with Contact Info -->
     <div style="background-color: #F9FAFB; padding: 24px; text-align: center; border-top: 1px solid #E5E7EB;">
       <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 14px;">
         ${businessName}
       </p>
       ${phoneSection}
+      ${emailSection}
       <p style="margin: 8px 0 0 0; color: #9CA3AF; font-size: 12px;">
         Powered by ChatOkay
       </p>
@@ -224,6 +239,7 @@ export const sendAppointmentEmail = internalAction({
     rescheduledFrom: v.optional(v.string()),
     logoUrl: v.optional(v.string()),
     phone: v.optional(v.string()),
+    email: v.optional(v.string()),
     cancellationToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -259,6 +275,7 @@ export const sendAppointmentEmail = internalAction({
         rescheduledFrom: args.rescheduledFrom,
         logoUrl: args.logoUrl,
         phone: args.phone,
+        email: args.email,
         cancellationToken: args.cancellationToken,
       });
 
