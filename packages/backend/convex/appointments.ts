@@ -598,6 +598,18 @@ export const cancelAppointment = action({
         ownerNote: args.ownerNote,
       });
 
+    // Delete from Google Calendar if exists
+    if (appointment.googleCalendarEventId && business?.googleCalendarEnabled) {
+      try {
+        await ctx.runAction(internal.googleCalendar.deleteCalendarEvent, {
+          businessId: appointment.businessId,
+          eventId: appointment.googleCalendarEventId,
+        });
+      } catch (error) {
+        console.error("Failed to delete from Google Calendar:", error);
+      }
+    }
+
     // Send email if customer has email
     if (appointment.customerData.email) {
       // Get logo URL if it exists
@@ -721,6 +733,60 @@ export const confirmAppointment = action({
         phone: business.phone,
         cancellationToken: appointment.cancellationToken,
       });
+    }
+
+    // Sync to Google Calendar if enabled
+    console.log("🔍 Google Calendar sync check:", {
+      googleCalendarEnabled: business?.googleCalendarEnabled,
+      businessId: business?._id,
+      appointmentId: args.appointmentId,
+    });
+
+    if (business?.googleCalendarEnabled) {
+      console.log("✅ Google Calendar is enabled, attempting to sync...");
+      try {
+        // Find the service to get duration
+        const service = business.appointmentConfig.services.find(
+          (s) => s.name === appointment.serviceName
+        );
+        const duration = service?.duration || 60;
+
+        console.log("📅 Creating calendar event with:", {
+          title: `${appointment.customerData.name} - ${appointment.serviceName}`,
+          startTime: appointment.appointmentTime,
+          duration,
+        });
+
+        const eventId = await ctx.runAction(
+          internal.googleCalendar.createCalendarEvent,
+          {
+            businessId: business._id,
+            appointmentId: args.appointmentId,
+            title: `${appointment.customerData.name} - ${appointment.serviceName}`,
+            startTime: appointment.appointmentTime,
+            duration: duration,
+            description: appointment.notes,
+          }
+        );
+
+        console.log(
+          "🎉 Calendar event created successfully! Event ID:",
+          eventId
+        );
+
+        // Save event ID
+        await ctx.runMutation(internal.appointments.updateGoogleEventId, {
+          appointmentId: args.appointmentId,
+          googleCalendarEventId: eventId,
+        });
+
+        console.log("✅ Event ID saved to appointment");
+      } catch (error) {
+        console.error("❌ Google Calendar sync failed:", error);
+        // No interrumpir el flujo principal
+      }
+    } else {
+      console.log("⚠️ Google Calendar sync is DISABLED or business not found");
     }
 
     return result;
@@ -857,6 +923,19 @@ export const rescheduleAppointmentMutation = internalMutation({
   },
 });
 
+// Internal mutation to update Google Calendar event ID
+export const updateGoogleEventId = internalMutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    googleCalendarEventId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.appointmentId, {
+      googleCalendarEventId: args.googleCalendarEventId,
+    });
+  },
+});
+
 // Action to reschedule an appointment and send email
 export const rescheduleAppointment = action({
   args: {
@@ -902,6 +981,26 @@ export const rescheduleAppointment = action({
           ownerNote: args.ownerNote,
         }
       );
+
+    // Update Google Calendar event if exists
+    if (appointment.googleCalendarEventId && business?.googleCalendarEnabled) {
+      try {
+        // Find the service to get duration
+        const service = business.appointmentConfig.services.find(
+          (s) => s.name === appointment.serviceName
+        );
+        const duration = service?.duration || 60;
+
+        await ctx.runAction(internal.googleCalendar.updateCalendarEvent, {
+          businessId: appointment.businessId,
+          eventId: appointment.googleCalendarEventId,
+          startTime: args.newAppointmentTime,
+          duration: duration,
+        });
+      } catch (error) {
+        console.error("Failed to update Google Calendar:", error);
+      }
+    }
 
     // Send email if customer has email
     if (appointment.customerData.email) {

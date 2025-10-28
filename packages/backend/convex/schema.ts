@@ -36,6 +36,8 @@ export default defineSchema({
         slots: v.array(v.object({ start: v.string(), end: v.string() })),
       })
     ),
+    googleCalendarEnabled: v.optional(v.boolean()),
+    googleCalendarId: v.optional(v.string()),
   })
     .index("by_user_id", ["userId"])
     .index("by_subdomain", ["subdomain"]),
@@ -58,6 +60,7 @@ export default defineSchema({
     ownerNote: v.optional(v.string()),
     rescheduledFrom: v.optional(v.string()),
     cancellationToken: v.optional(v.string()),
+    googleCalendarEventId: v.optional(v.string()),
   })
     .index("by_business_id", ["businessId"])
     .index("by_cancellation_token", ["cancellationToken"]),

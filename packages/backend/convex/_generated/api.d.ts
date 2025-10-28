@@ -13,6 +13,7 @@ import type * as businesses from "../businesses.js";
 import type * as chat from "../chat.js";
 import type * as clerk from "../clerk.js";
 import type * as email from "../email.js";
+import type * as googleCalendar from "../googleCalendar.js";
 import type * as http from "../http.js";
 import type * as users from "../users.js";
 
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   clerk: typeof clerk;
   email: typeof email;
+  googleCalendar: typeof googleCalendar;
   http: typeof http;
   users: typeof users;
 }>;
