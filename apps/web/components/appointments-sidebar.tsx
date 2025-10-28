@@ -63,15 +63,15 @@ export function AppointmentsSidebar({
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <Card className="bg-card border-border h-full">
+    <div className="h-full">
+      <Card className="bg-card border-border h-full flex flex-col">
         <CardHeader>
           <CardTitle className="text-foreground">Próximas Citas</CardTitle>
           <p className="text-xs text-foreground/60">
             {appointments.length} {appointments.length === 1 ? "cita" : "citas"}
           </p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 overflow-y-auto">
           {sortedAppointments.map((appointment) => (
             <button
               key={appointment._id}

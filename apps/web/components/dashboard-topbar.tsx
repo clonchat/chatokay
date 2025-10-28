@@ -15,6 +15,7 @@ import { useAtomValue } from "jotai";
 import { businessAtom } from "@/lib/store/auth-atoms";
 import { Menu, X, LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
+import { NotificationsDropdown } from "./notifications-dropdown";
 
 interface DashboardTopbarProps {
   onMenuClick: () => void;
@@ -82,6 +83,9 @@ export function DashboardTopbar({
             Tu chatbot está activo
           </p>
         </div>
+
+        {/* Notifications */}
+        {business && <NotificationsDropdown businessId={business._id} />}
 
         {/* Theme toggle button */}
         <Button variant="ghost" size="sm" onClick={toggleTheme}>

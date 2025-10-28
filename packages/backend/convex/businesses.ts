@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server.js";
+import { mutation, query, internalQuery } from "./_generated/server.js";
 
 // Query to get the current user's business
 export const getCurrentUserBusiness = query({
@@ -92,6 +92,16 @@ export const getBySubdomain = query({
       welcomeMessage: business.visualConfig?.welcomeMessage,
       services: business.appointmentConfig?.services || [],
     };
+  },
+});
+
+// Internal query to get a business by ID (for actions)
+export const getBusinessById = internalQuery({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.businessId);
   },
 });
 

@@ -183,6 +183,7 @@ export default function CitasPage() {
         appointment={selectedAppointment}
         isOpen={!!selectedAppointment}
         onClose={() => setSelectedAppointmentId(null)}
+        businessId={business._id}
       />
     </div>
   );

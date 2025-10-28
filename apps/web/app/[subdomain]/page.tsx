@@ -1,40 +1,34 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { api } from "@workspace/backend/_generated/api";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
-import { Send, Bot, Menu } from "lucide-react";
-import { useAction } from "convex/react";
-import { api } from "@workspace/backend/_generated/api";
+import { useAction, useQuery } from "convex/react";
+import { Bot, Menu, Send } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSidebar } from "./layout";
-
-interface Business {
-  _id: string;
-  name: string;
-  description?: string;
-  subdomain: string;
-  theme?: string;
-  logo?: string;
-  welcomeMessage?: string;
-  services?: Array<{
-    id: string;
-    name: string;
-    duration: number;
-    price?: number;
-  }>;
-}
 
 export default function ChatPage() {
   const params = useParams();
   const subdomain = params.subdomain as string;
   const { toggleSidebar, business: layoutBusiness } = useSidebar();
 
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Call Convex directly instead of using the route handler
+  const businessFromQuery = useQuery(
+    api.businesses.getBySubdomain,
+    layoutBusiness ? "skip" : subdomain ? { subdomain } : "skip"
+  );
+
+  const business = layoutBusiness || businessFromQuery;
+  // Loading: no layout business AND query is still undefined
+  const loading = !layoutBusiness && businessFromQuery === undefined;
+  // Error: query finished but returned null (business not found)
+  const error =
+    businessFromQuery === null && !loading ? "Negocio no encontrado" : null;
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<
     Array<{ role: "user" | "assistant" | "system"; content: string }>
@@ -49,66 +43,17 @@ export default function ChatPage() {
     `${subdomain}-${Date.now()}-${Math.random()}`
   );
 
+  // Add welcome message when business loads
   useEffect(() => {
-    // If business is already loaded from layout, use it
-    if (layoutBusiness) {
-      setBusiness(layoutBusiness);
-
-      // Add welcome message
-      if (layoutBusiness.welcomeMessage) {
-        setMessages([
-          {
-            role: "assistant",
-            content: layoutBusiness.welcomeMessage,
-          },
-        ]);
-      }
-
-      setLoading(false);
-      return;
+    if (business?.welcomeMessage && messages.length === 0) {
+      setMessages([
+        {
+          role: "assistant",
+          content: business.welcomeMessage,
+        },
+      ]);
     }
-
-    // Otherwise fetch it
-    async function fetchBusiness() {
-      try {
-        const response = await fetch(`/api/business/${subdomain}`);
-        if (!response.ok) {
-          throw new Error("Negocio no encontrado");
-        }
-        const data = await response.json();
-        setBusiness(data);
-
-        // Add welcome message
-        if (data.welcomeMessage) {
-          setMessages([
-            {
-              role: "assistant",
-              content: data.welcomeMessage,
-            },
-          ]);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (subdomain) {
-      fetchBusiness();
-    }
-  }, [subdomain, layoutBusiness]);
-
-  // Update document title
-  useEffect(() => {
-    if (business) {
-      const originalTitle = document.title;
-      document.title = business.name;
-      return () => {
-        document.title = "ChatOkay"; // Reset to default
-      };
-    }
-  }, [business]);
+  }, [business, messages.length]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -197,7 +142,7 @@ export default function ChatPage() {
     <div className="flex flex-col h-full">
       {/* Header with business info */}
       <header className="border-b bg-card border-border">
-        <div className="max-w-4xl mx-auto px-4 py-3">
+        <div className="max-w-4xl mx-auto py-3">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"

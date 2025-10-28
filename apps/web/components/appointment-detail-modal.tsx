@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import {
   Dialog,
@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog";
 import { Button } from "@workspace/ui/components/button";
+import { Textarea } from "@workspace/ui/components/textarea";
+import { Label } from "@workspace/ui/components/label";
 import {
   Clock,
   Mail,
@@ -19,6 +21,7 @@ import {
   X,
   CheckCircle,
   Calendar,
+  CalendarClock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -44,16 +47,42 @@ interface AppointmentDetailModalProps {
   appointment: Appointment | null;
   isOpen: boolean;
   onClose: () => void;
+  businessId?: Id<"businesses">;
 }
 
 export function AppointmentDetailModal({
   appointment,
   isOpen,
   onClose,
+  businessId,
 }: AppointmentDetailModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const confirmAppointment = useMutation(api.appointments.confirmAppointment);
-  const cancelAppointment = useMutation(api.appointments.cancelAppointment);
+  const [ownerNote, setOwnerNote] = useState("");
+  const [isRescheduleMode, setIsRescheduleMode] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+
+  const confirmAppointment = useAction(api.appointments.confirmAppointment);
+  const cancelAppointment = useAction(api.appointments.cancelAppointment);
+  const rescheduleAppointment = useAction(
+    api.appointments.rescheduleAppointment
+  );
+
+  // Get available slots for selected date
+  const availableSlots = useQuery(
+    api.appointments.getAvailableSlots,
+    selectedDate && businessId ? { businessId, date: selectedDate } : "skip"
+  );
+
+  // Reset states when appointment changes or modal opens/closes
+  useEffect(() => {
+    if (isOpen && appointment) {
+      setOwnerNote("");
+      setIsRescheduleMode(false);
+      setSelectedDate("");
+      setSelectedTime("");
+    }
+  }, [isOpen, appointment]);
 
   if (!appointment) return null;
 
@@ -70,8 +99,11 @@ export function AppointmentDetailModal({
 
     setIsLoading(true);
     try {
-      await confirmAppointment({ appointmentId: appointment._id });
-      toast.success("Cita confirmada correctamente");
+      await confirmAppointment({
+        appointmentId: appointment._id,
+        ownerNote: ownerNote.trim() || undefined,
+      });
+      toast.success("Cita confirmada y cliente notificado por correo");
       onClose();
     } catch (error) {
       toast.error("Error al confirmar la cita");
@@ -86,11 +118,40 @@ export function AppointmentDetailModal({
 
     setIsLoading(true);
     try {
-      await cancelAppointment({ appointmentId: appointment._id });
-      toast.success("Cita cancelada correctamente");
+      await cancelAppointment({
+        appointmentId: appointment._id,
+        ownerNote: ownerNote.trim() || undefined,
+      });
+      toast.success("Cita cancelada y cliente notificado por correo");
       onClose();
     } catch (error) {
       toast.error("Error al cancelar la cita");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!selectedDate || !selectedTime) {
+      toast.error("Por favor selecciona una fecha y hora");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const newAppointmentTime = `${selectedDate}T${selectedTime}`;
+      await rescheduleAppointment({
+        appointmentId: appointment._id,
+        newAppointmentTime,
+        ownerNote: ownerNote.trim() || undefined,
+      });
+      toast.success("Cita reprogramada y cliente notificado por correo");
+      onClose();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al reprogramar la cita"
+      );
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -230,30 +291,161 @@ export function AppointmentDetailModal({
 
           <hr className="border-border" />
 
+          {/* Owner Note */}
+          <div className="space-y-3">
+            <Label
+              htmlFor="ownerNote"
+              className="text-sm font-semibold text-foreground/70"
+            >
+              Nota para el cliente (opcional)
+            </Label>
+            <Textarea
+              id="ownerNote"
+              placeholder="Añade una nota que se enviará al cliente por correo..."
+              value={ownerNote}
+              onChange={(e) => setOwnerNote(e.target.value)}
+              rows={3}
+              disabled={isLoading}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Reschedule Section */}
+          {isRescheduleMode && appointment.status !== "cancelled" && (
+            <>
+              <hr className="border-border" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <CalendarClock className="h-4 w-4" />
+                  Reprogramar Cita
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="newDate" className="text-sm">
+                      Nueva Fecha
+                    </Label>
+                    <input
+                      id="newDate"
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  {selectedDate &&
+                    availableSlots &&
+                    availableSlots.length > 0 && (
+                      <div>
+                        <Label className="text-sm">Horarios Disponibles</Label>
+                        <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                          {availableSlots
+                            .filter(
+                              (slot: { isBooked: boolean }) => !slot.isBooked
+                            )
+                            .map((slot: { start: string; end: string }) => (
+                              <Button
+                                key={slot.start}
+                                type="button"
+                                variant={
+                                  selectedTime === slot.start
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                onClick={() => setSelectedTime(slot.start)}
+                                disabled={isLoading}
+                                className="text-xs"
+                              >
+                                {slot.start}
+                              </Button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {selectedDate &&
+                    availableSlots &&
+                    availableSlots.filter(
+                      (slot: { isBooked: boolean }) => !slot.isBooked
+                    ).length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No hay horarios disponibles para esta fecha
+                      </p>
+                    )}
+                </div>
+              </div>
+            </>
+          )}
+
+          <hr className="border-border" />
+
           {/* Actions */}
-          <div className="flex gap-3">
-            {appointment.status !== "confirmed" && (
-              <Button
-                onClick={handleConfirm}
-                disabled={isLoading}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-11"
-                size="lg"
-              >
-                <CheckCircle className="mr-2 h-5 w-5" />
-                Confirmar Cita
-              </Button>
-            )}
-            {appointment.status !== "cancelled" && (
-              <Button
-                onClick={handleCancel}
-                disabled={isLoading}
-                variant="outline"
-                className="flex-1 border-2 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium h-11"
-                size="lg"
-              >
-                <X className="mr-2 h-5 w-5" />
-                Cancelar Cita
-              </Button>
+          <div className="space-y-3">
+            {isRescheduleMode ? (
+              <>
+                <Button
+                  onClick={handleReschedule}
+                  disabled={isLoading || !selectedDate || !selectedTime}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
+                  size="lg"
+                >
+                  <CalendarClock className="mr-2 h-5 w-5" />
+                  {isLoading ? "Reprogramando..." : "Confirmar Reprogramación"}
+                </Button>
+                <Button
+                  onClick={() => setIsRescheduleMode(false)}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  Cancelar Reprogramación
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-3">
+                  {appointment.status !== "confirmed" && (
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={isLoading}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-11"
+                      size="lg"
+                    >
+                      <CheckCircle className="mr-2 h-5 w-5" />
+                      {isLoading ? "Confirmando..." : "Confirmar"}
+                    </Button>
+                  )}
+                  {appointment.status !== "cancelled" && (
+                    <Button
+                      onClick={handleCancel}
+                      disabled={isLoading}
+                      variant="outline"
+                      className="flex-1 border-2 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium h-11"
+                      size="lg"
+                    >
+                      <X className="mr-2 h-5 w-5" />
+                      {isLoading ? "Cancelando..." : "Cancelar"}
+                    </Button>
+                  )}
+                </div>
+                {appointment.status !== "cancelled" && (
+                  <Button
+                    onClick={() => setIsRescheduleMode(true)}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full border-2 font-medium h-11"
+                    size="lg"
+                  >
+                    <CalendarClock className="mr-2 h-5 w-5" />
+                    Reprogramar Cita
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

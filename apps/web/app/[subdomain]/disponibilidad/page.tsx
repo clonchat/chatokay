@@ -1,7 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { api } from "@workspace/backend/_generated/api";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -9,38 +8,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { useQuery } from "convex/react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useQuery } from "convex/react";
-import { api } from "@workspace/backend/_generated/api";
+import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useSidebar } from "../layout";
-
-interface Business {
-  _id: string;
-  name: string;
-  logo?: string;
-  description?: string;
-}
-
-interface WeeklyAvailability {
-  date: string;
-  dayName: string;
-  slots: Array<{
-    start: string;
-    end: string;
-    isBooked: boolean;
-  }>;
-}
 
 export default function DisponibilidadPage() {
   const params = useParams();
   const subdomain = params.subdomain as string;
-  const { toggleSidebar } = useSidebar();
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { toggleSidebar, business: layoutBusiness } = useSidebar();
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
-  const [error, setError] = useState<string | null>(null);
+
+  // Get business from layout or query it directly
+  const businessFromQuery = useQuery(
+    api.businesses.getBySubdomain,
+    layoutBusiness ? "skip" : subdomain ? { subdomain } : "skip"
+  );
+
+  const business = layoutBusiness || businessFromQuery;
+  // Loading: no layout business AND query is still undefined
+  const loading = !layoutBusiness && businessFromQuery === undefined;
+  // Error: query finished but returned null (business not found)
+  const error =
+    businessFromQuery === null && !loading ? "Negocio no encontrado" : null;
 
   // Get Monday of the current week
   const getWeekStart = (date: Date): Date => {
@@ -55,28 +48,6 @@ export default function DisponibilidadPage() {
       getWeekStart(new Date(currentWeekStart)).toISOString().split("T")[0] ?? ""
     );
   }, [currentWeekStart]);
-
-  // Fetch business info
-  useEffect(() => {
-    async function fetchBusiness() {
-      try {
-        const response = await fetch(`/api/business/${subdomain}`);
-        if (!response.ok) {
-          throw new Error("Negocio no encontrado");
-        }
-        const data = await response.json();
-        setBusiness(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (subdomain) {
-      fetchBusiness();
-    }
-  }, [subdomain]);
 
   // Use Convex query to get weekly availability
   const weeklyAvailability = useQuery(

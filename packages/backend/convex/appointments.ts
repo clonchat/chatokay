@@ -1,5 +1,12 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server.js";
+import {
+  mutation,
+  query,
+  action,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 
 // Helper function to generate individual time slots
 function generateTimeSlots(
@@ -284,6 +291,53 @@ export const getBusinessAppointments = query({
   },
 });
 
+// Internal query to get appointment by ID (for actions)
+export const getAppointmentById = internalQuery({
+  args: {
+    appointmentId: v.id("appointments"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.appointmentId);
+  },
+});
+
+// Query to get pending appointments for notifications
+export const getPendingAppointments = query({
+  args: {
+    businessId: v.id("businesses"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const allAppointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+
+    // Filter pending appointments
+    const pendingAppointments = allAppointments
+      .filter(
+        (apt) => apt.status === "pending" && apt.appointmentTime >= nowISO
+      )
+      .sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime))
+      .slice(0, args.limit || 5)
+      .map((apt) => ({
+        _id: apt._id,
+        customerName: apt.customerData.name,
+        customerEmail: apt.customerData.email,
+        customerPhone: apt.customerData.phone,
+        appointmentTime: apt.appointmentTime,
+        serviceName: apt.serviceName,
+        status: apt.status,
+        notes: apt.notes,
+      }));
+
+    return pendingAppointments;
+  },
+});
+
 // Query to get upcoming appointments for a business
 export const getUpcomingAppointments = query({
   args: {
@@ -481,12 +535,16 @@ export const createAppointment = mutation({
   },
 });
 
-// Mutation to cancel an appointment
-export const cancelAppointment = mutation({
+// Internal mutation to cancel an appointment (called from action)
+export const cancelAppointmentMutation = internalMutation({
   args: {
     appointmentId: v.id("appointments"),
+    ownerNote: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
     const appointment = await ctx.db.get(args.appointmentId);
 
     if (!appointment) {
@@ -495,18 +553,80 @@ export const cancelAppointment = mutation({
 
     await ctx.db.patch(args.appointmentId, {
       status: "cancelled",
+      ownerNote: args.ownerNote,
     });
 
-    return { success: true };
+    return { success: true, appointment };
   },
 });
 
-// Mutation to confirm an appointment
-export const confirmAppointment = mutation({
+// Action to cancel an appointment and send email
+export const cancelAppointment = action({
   args: {
     appointmentId: v.id("appointments"),
+    ownerNote: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
+    // Get appointment details before cancelling
+    const appointment = await ctx.runQuery(
+      internal.appointments.getAppointmentById,
+      {
+        appointmentId: args.appointmentId,
+      }
+    );
+
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    // Get business details
+    const business = await ctx.runQuery(internal.businesses.getBusinessById, {
+      businessId: appointment.businessId,
+    });
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Cancel the appointment
+    const result: { success: boolean; appointment: any } =
+      await ctx.runMutation(internal.appointments.cancelAppointmentMutation, {
+        appointmentId: args.appointmentId,
+        ownerNote: args.ownerNote,
+      });
+
+    // Send email if customer has email
+    if (appointment.customerData.email) {
+      // @ts-expect-error - email module exists but type generation is delayed
+      await ctx.runAction(internal.email.sendAppointmentEmail, {
+        customerEmail: appointment.customerData.email,
+        customerName: appointment.customerData.name,
+        businessName: business.name,
+        subdomain: business.subdomain,
+        serviceName: appointment.serviceName,
+        appointmentTime: appointment.appointmentTime,
+        actionType: "cancelled" as const,
+        ownerNote: args.ownerNote,
+      });
+    }
+
+    return result;
+  },
+});
+
+// Internal mutation to confirm an appointment (called from action)
+export const confirmAppointmentMutation = internalMutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    ownerNote: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
     const appointment = await ctx.db.get(args.appointmentId);
 
     if (!appointment) {
@@ -515,8 +635,262 @@ export const confirmAppointment = mutation({
 
     await ctx.db.patch(args.appointmentId, {
       status: "confirmed",
+      ownerNote: args.ownerNote,
     });
 
-    return { success: true };
+    return { success: true, appointment };
+  },
+});
+
+// Action to confirm an appointment and send email
+export const confirmAppointment = action({
+  args: {
+    appointmentId: v.id("appointments"),
+    ownerNote: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
+    // Get appointment details before confirming
+    const appointment = await ctx.runQuery(
+      internal.appointments.getAppointmentById,
+      {
+        appointmentId: args.appointmentId,
+      }
+    );
+
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    // Get business details
+    const business = await ctx.runQuery(internal.businesses.getBusinessById, {
+      businessId: appointment.businessId,
+    });
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Confirm the appointment
+    const result: { success: boolean; appointment: any } =
+      await ctx.runMutation(internal.appointments.confirmAppointmentMutation, {
+        appointmentId: args.appointmentId,
+        ownerNote: args.ownerNote,
+      });
+
+    // Send email if customer has email
+    if (appointment.customerData.email) {
+      // @ts-expect-error - email module exists but type generation is delayed
+      await ctx.runAction(internal.email.sendAppointmentEmail, {
+        customerEmail: appointment.customerData.email,
+        customerName: appointment.customerData.name,
+        businessName: business.name,
+        subdomain: business.subdomain,
+        serviceName: appointment.serviceName,
+        appointmentTime: appointment.appointmentTime,
+        actionType: "confirmed" as const,
+        ownerNote: args.ownerNote,
+      });
+    }
+
+    return result;
+  },
+});
+
+// Internal mutation to reschedule an appointment (called from action)
+export const rescheduleAppointmentMutation = internalMutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    newAppointmentTime: v.string(),
+    ownerNote: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
+    const appointment = await ctx.db.get(args.appointmentId);
+
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    const business = await ctx.db.get(appointment.businessId);
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Validate new time slot availability
+    const [date, time] = args.newAppointmentTime.split("T");
+
+    if (!date || !time) {
+      throw new Error("Invalid appointment time format");
+    }
+
+    const dateObj = new Date(date);
+    const dayOfWeekEnglish = dateObj.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    // Map English day names to Spanish
+    const dayMap: Record<string, string> = {
+      Monday: "Lunes",
+      Tuesday: "Martes",
+      Wednesday: "Miércoles",
+      Thursday: "Jueves",
+      Friday: "Viernes",
+      Saturday: "Sábado",
+      Sunday: "Domingo",
+    };
+
+    const dayOfWeekSpanish = dayMap[dayOfWeekEnglish] || dayOfWeekEnglish;
+
+    // Find availability for this day
+    const dayAvailability = business.availability.find(
+      (av) => av.day.toLowerCase() === dayOfWeekSpanish.toLowerCase()
+    );
+
+    if (!dayAvailability) {
+      throw new Error("No availability for this day");
+    }
+
+    // Check if time slot exists within any available slot range
+    const slotExists = dayAvailability.slots.some((slot) => {
+      return time >= slot.start && time < slot.end;
+    });
+
+    if (!slotExists) {
+      throw new Error("Time slot not available");
+    }
+
+    // Find the service to get its duration
+    const service = business.appointmentConfig.services.find(
+      (s) => s.name === appointment.serviceName
+    );
+
+    if (!service) {
+      throw new Error("Service not found");
+    }
+
+    const serviceDuration = service.duration;
+
+    // Check if slot conflicts with existing appointments (excluding current one)
+    const existingAppointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) =>
+        q.eq("businessId", appointment.businessId)
+      )
+      .collect();
+
+    // Filter appointments for the same date (excluding the current appointment being rescheduled)
+    const [newApptDate] = args.newAppointmentTime.split("T");
+    const sameDayAppointments = existingAppointments.filter((apt) => {
+      const [aptDate] = apt.appointmentTime.split("T");
+      return (
+        aptDate === newApptDate &&
+        apt.status !== "cancelled" &&
+        apt._id !== args.appointmentId
+      );
+    });
+
+    // Calculate the requested appointment's time range
+    const newStartTime = new Date(args.newAppointmentTime).getTime();
+    const newEndTime = newStartTime + serviceDuration * 60 * 1000;
+
+    // Check for overlapping appointments
+    const hasConflict = sameDayAppointments.some((apt) => {
+      const existingService = business.appointmentConfig.services.find(
+        (s) => s.name === apt.serviceName
+      );
+      const existingDuration = existingService?.duration || 60;
+
+      const existingStartTime = new Date(apt.appointmentTime).getTime();
+      const existingEndTime = existingStartTime + existingDuration * 60 * 1000;
+
+      // Check if appointments overlap
+      return newStartTime < existingEndTime && newEndTime > existingStartTime;
+    });
+
+    if (hasConflict) {
+      throw new Error("This time slot conflicts with an existing appointment");
+    }
+
+    // Update the appointment
+    await ctx.db.patch(args.appointmentId, {
+      rescheduledFrom: appointment.appointmentTime,
+      appointmentTime: args.newAppointmentTime,
+      ownerNote: args.ownerNote,
+      status: "confirmed", // Auto-confirm when rescheduled by owner
+    });
+
+    return { success: true, appointment };
+  },
+});
+
+// Action to reschedule an appointment and send email
+export const rescheduleAppointment = action({
+  args: {
+    appointmentId: v.id("appointments"),
+    newAppointmentTime: v.string(), // Format: YYYY-MM-DDTHH:mm
+    ownerNote: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; appointment: any }> => {
+    // Get appointment details before rescheduling
+    const appointment = await ctx.runQuery(
+      internal.appointments.getAppointmentById,
+      {
+        appointmentId: args.appointmentId,
+      }
+    );
+
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    // Get business details
+    const business = await ctx.runQuery(internal.businesses.getBusinessById, {
+      businessId: appointment.businessId,
+    });
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Store original time for email
+    const originalTime = appointment.appointmentTime;
+
+    // Reschedule the appointment
+    const result: { success: boolean; appointment: any } =
+      await ctx.runMutation(
+        internal.appointments.rescheduleAppointmentMutation,
+        {
+          appointmentId: args.appointmentId,
+          newAppointmentTime: args.newAppointmentTime,
+          ownerNote: args.ownerNote,
+        }
+      );
+
+    // Send email if customer has email
+    if (appointment.customerData.email) {
+      // @ts-expect-error - email module exists but type generation is delayed
+      await ctx.runAction(internal.email.sendAppointmentEmail, {
+        customerEmail: appointment.customerData.email,
+        customerName: appointment.customerData.name,
+        businessName: business.name,
+        subdomain: business.subdomain,
+        serviceName: appointment.serviceName,
+        appointmentTime: args.newAppointmentTime,
+        actionType: "rescheduled" as const,
+        ownerNote: args.ownerNote,
+        rescheduledFrom: originalTime,
+      });
+    }
+
+    return result;
   },
 });

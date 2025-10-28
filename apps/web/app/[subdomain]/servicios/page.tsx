@@ -1,7 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { api } from "@workspace/backend/_generated/api";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -11,7 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import { useQuery } from "convex/react";
 import { Menu } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useSidebar } from "../layout";
 
 interface Service {
@@ -21,42 +22,23 @@ interface Service {
   price?: number;
 }
 
-interface Business {
-  _id: string;
-  name: string;
-  description?: string;
-  logo?: string;
-  services?: Service[];
-}
-
 export default function ServiciosPage() {
   const params = useParams();
   const subdomain = params.subdomain as string;
-  const { toggleSidebar } = useSidebar();
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { toggleSidebar, business: layoutBusiness } = useSidebar();
 
-  useEffect(() => {
-    async function fetchBusiness() {
-      try {
-        const response = await fetch(`/api/business/${subdomain}`);
-        if (!response.ok) {
-          throw new Error("Negocio no encontrado");
-        }
-        const data = await response.json();
-        setBusiness(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Get business from layout or query it directly
+  const businessFromQuery = useQuery(
+    api.businesses.getBySubdomain,
+    layoutBusiness ? "skip" : subdomain ? { subdomain } : "skip"
+  );
 
-    if (subdomain) {
-      fetchBusiness();
-    }
-  }, [subdomain]);
+  const business = layoutBusiness || businessFromQuery;
+  // Loading: no layout business AND query is still undefined
+  const loading = !layoutBusiness && businessFromQuery === undefined;
+  // Error: query finished but returned null (business not found)
+  const error =
+    businessFromQuery === null && !loading ? "Negocio no encontrado" : null;
 
   if (loading) {
     return (

@@ -53,5 +53,7 @@ export default defineSchema({
       v.literal("cancelled")
     ),
     notes: v.optional(v.string()),
+    ownerNote: v.optional(v.string()),
+    rescheduledFrom: v.optional(v.string()),
   }).index("by_business_id", ["businessId"]),
 });

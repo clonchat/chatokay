@@ -3,9 +3,12 @@
 import { CustomerSidebar } from "@/components/customer-sidebar";
 import { useParams } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import type { Id } from "@workspace/backend/_generated/dataModel";
 
 interface Business {
-  _id: string;
+  _id: string | Id<"businesses">;
   name: string;
   description?: string;
   subdomain: string;
@@ -44,71 +47,71 @@ export default function SubdomainLayout({
 }) {
   const params = useParams();
   const subdomain = params.subdomain as string;
-  const [business, setBusiness] = useState<Business | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Call Convex directly instead of using the route handler
+  const businessFromQuery = useQuery(
+    api.businesses.getBySubdomain,
+    subdomain ? { subdomain } : "skip"
+  );
+
+  // Convert undefined to null for consistency
+  const business = businessFromQuery ?? null;
+
+  // Set default light theme immediately
   useEffect(() => {
-    async function fetchBusiness() {
-      try {
-        const response = await fetch(`/api/business/${subdomain}`);
-        if (response.ok) {
-          const data = await response.json();
-          setBusiness(data);
-        }
-      } catch (err) {
-        console.error("Error fetching business:", err);
-      }
-    }
+    const htmlElement = document.documentElement;
+    // Ensure light mode by default (prevent dark flash)
+    setTimeout(() => {
+      htmlElement.classList.remove("dark");
+    }, 0);
+  }, []);
 
-    if (subdomain) {
-      fetchBusiness();
-    }
-  }, [subdomain]);
-
-  // Apply theme
+  // Apply theme, title, and favicon when business loads
   useEffect(() => {
     if (!business) return;
 
     const htmlElement = document.documentElement;
-    if (business.theme === "dark") {
+
+    // Apply theme
+    /* if (business.theme === "dark") {
       htmlElement.classList.add("dark");
     } else {
       htmlElement.classList.remove("dark");
-    }
+    } */
+
+    // Update document title
+    const originalTitle = document.title;
+    document.title = business.name;
 
     // Update favicon if logo exists
-    let faviconLink: HTMLLinkElement | null = null;
     if (business.logo) {
-      // Get existing business favicon if it exists
+      // Remove any existing business favicon
       const existingFavicon = document.querySelector(
         'link[data-business-favicon="true"]'
       );
+      if (existingFavicon) {
+        existingFavicon.remove();
+      }
 
-      // Create new favicon link with cache busting
-      faviconLink = document.createElement("link");
+      // Create new favicon link
+      const faviconLink = document.createElement("link");
       faviconLink.rel = "icon";
       faviconLink.type = "image/png";
       faviconLink.href = business.logo;
       faviconLink.setAttribute("data-business-favicon", "true");
-
-      // Replace existing favicon or append new one
-      if (existingFavicon) {
-        existingFavicon.remove();
-      }
       document.head.appendChild(faviconLink);
     }
 
+    // Cleanup function
     return () => {
+      // Reset theme to light when unmounting
       htmlElement.classList.remove("dark");
-      // Find and remove the business logo favicon we added
-      const businessFavicon = document.querySelector(
-        'link[data-business-favicon="true"]'
-      );
-      if (businessFavicon) {
-        businessFavicon.remove();
-      }
+      // Reset title
+      document.title = originalTitle;
+      // DON'T remove the favicon here - let it persist
     };
-  }, [business?.theme, business?.logo]);
+  }, [business]);
 
   const themeClass = business?.theme || "light";
 
