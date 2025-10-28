@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Button } from "@workspace/ui/components/button";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-export default function CancelAppointmentPage() {
+function CancelAppointmentContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -216,5 +216,24 @@ export default function CancelAppointmentPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function CancelAppointmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="animate-spin text-4xl mb-4">⏳</div>
+              <p className="text-muted-foreground">Cargando información...</p>
+            </div>
+          </Card>
+        </div>
+      }
+    >
+      <CancelAppointmentContent />
+    </Suspense>
   );
 }
