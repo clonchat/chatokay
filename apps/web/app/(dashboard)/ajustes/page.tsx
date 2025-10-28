@@ -33,10 +33,12 @@ export default function AjustesPage() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
   const [originalBusinessName, setOriginalBusinessName] = useState("");
   const [originalBusinessDescription, setOriginalBusinessDescription] =
     useState("");
+  const [originalBusinessEmail, setOriginalBusinessEmail] = useState("");
   const [originalBusinessPhone, setOriginalBusinessPhone] = useState("");
   const [originalTheme, setOriginalTheme] = useState<"light" | "dark">("light");
   const [originalWelcomeMessage, setOriginalWelcomeMessage] = useState("");
@@ -47,18 +49,21 @@ export default function AjustesPage() {
     if (business) {
       const name = business.name || "";
       const desc = business.description || "";
+      const email = business.email || "";
       const phone = business.phone || "";
       const themeVal = business.visualConfig?.theme || "light";
       const welcome = business.visualConfig?.welcomeMessage || "";
 
       setBusinessName(name);
       setBusinessDescription(desc);
+      setBusinessEmail(email);
       setBusinessPhone(phone);
       setTheme(themeVal);
       setWelcomeMessage(welcome);
 
       setOriginalBusinessName(name);
       setOriginalBusinessDescription(desc);
+      setOriginalBusinessEmail(email);
       setOriginalBusinessPhone(phone);
       setOriginalTheme(themeVal);
       setOriginalWelcomeMessage(welcome);
@@ -92,6 +97,7 @@ export default function AjustesPage() {
       const hasBusinessInfoChanges =
         businessName !== originalBusinessName ||
         businessDescription !== originalBusinessDescription ||
+        businessEmail !== originalBusinessEmail ||
         businessPhone !== originalBusinessPhone;
 
       const hasVisualConfigChanges =
@@ -110,6 +116,7 @@ export default function AjustesPage() {
         const updateData: {
           name?: string;
           description?: string;
+          email?: string;
           phone?: string;
         } = {};
         if (businessName !== originalBusinessName) {
@@ -117,6 +124,9 @@ export default function AjustesPage() {
         }
         if (businessDescription !== originalBusinessDescription) {
           updateData.description = businessDescription;
+        }
+        if (businessEmail !== originalBusinessEmail) {
+          updateData.email = businessEmail;
         }
         if (businessPhone !== originalBusinessPhone) {
           updateData.phone = businessPhone;
@@ -228,6 +238,20 @@ export default function AjustesPage() {
               className="mt-2"
               placeholder="Describe brevemente tu negocio"
             />
+          </div>
+          <div>
+            <Label htmlFor="businessEmail">Email de Contacto (Opcional)</Label>
+            <Input
+              id="businessEmail"
+              type="email"
+              value={businessEmail}
+              onChange={(e) => setBusinessEmail(e.target.value)}
+              className="mt-2"
+              placeholder="contacto@minegocio.com"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Los clientes podrán ver este email para contactarte
+            </p>
           </div>
           <div>
             <Label htmlFor="businessPhone">Número de Teléfono (Opcional)</Label>

@@ -87,6 +87,7 @@ export const getBySubdomain = query({
       name: business.name,
       description: business.description,
       subdomain: business.subdomain,
+      email: business.email,
       phone: business.phone,
       theme: business.visualConfig?.theme,
       logo: logoUrl,
@@ -112,6 +113,7 @@ export const create = mutation({
     name: v.string(),
     description: v.string(),
     subdomain: v.string(),
+    email: v.optional(v.string()),
     phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -158,6 +160,7 @@ export const create = mutation({
       name: args.name,
       description: args.description,
       subdomain: args.subdomain,
+      email: args.email,
       phone: args.phone,
       visualConfig: {
         theme: "light",
@@ -354,6 +357,8 @@ export const updateBusinessInfo = mutation({
     businessId: v.id("businesses"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get the authenticated user's identity
@@ -392,6 +397,12 @@ export const updateBusinessInfo = mutation({
     }
     if (args.description !== undefined) {
       update.description = args.description;
+    }
+    if (args.email !== undefined) {
+      update.email = args.email;
+    }
+    if (args.phone !== undefined) {
+      update.phone = args.phone;
     }
 
     // Update the business

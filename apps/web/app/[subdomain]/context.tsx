@@ -8,6 +8,7 @@ export interface Business {
   name: string;
   description?: string;
   subdomain: string;
+  email?: string;
   phone?: string;
   theme?: string;
   logo?: string;

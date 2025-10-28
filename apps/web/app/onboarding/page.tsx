@@ -81,6 +81,7 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [subdomain, setSubdomain] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
   // Step 2: Visual Configuration
@@ -199,7 +200,8 @@ export default function OnboardingPage() {
         name,
         description,
         subdomain,
-        phone,
+        email: email || undefined,
+        phone: phone || undefined,
       });
       setBusinessId(id);
       toast.success("Negocio creado exitosamente");
@@ -442,6 +444,19 @@ export default function OnboardingPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Tu chatbot estará en: {subdomain || "minegocio"}.chatokay.com
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="email">Email de Contacto (Opcional)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="contacto@minegocio.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Los clientes podrán ver este email para contactarte
                 </p>
               </div>
               <div>

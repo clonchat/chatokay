@@ -13,6 +13,7 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     subdomain: v.string(),
+    email: v.optional(v.string()),
     phone: v.optional(v.string()),
     visualConfig: v.object({
       logoUrl: v.optional(v.id("_storage")),
