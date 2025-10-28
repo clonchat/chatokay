@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogClose,
 } from "@workspace/ui/components/dialog";
 import { Label } from "@workspace/ui/components/label";
 import { Textarea } from "@workspace/ui/components/textarea";
@@ -92,6 +93,13 @@ export function AppointmentDetailModal({
     };
   };
 
+  const calculateEndTime = (startTime: string, durationMinutes?: number) => {
+    if (!durationMinutes) return null;
+    const start = new Date(startTime);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    return format(end, "HH:mm", { locale: es });
+  };
+
   const handleConfirm = async () => {
     if (appointment.status === "confirmed") return;
 
@@ -157,6 +165,10 @@ export function AppointmentDetailModal({
   };
 
   const { date, time } = formatDateTime(appointment.appointmentTime);
+  const endTime = calculateEndTime(
+    appointment.appointmentTime,
+    appointment.duration
+  );
 
   const getStatusColor = () => {
     switch (appointment.status) {
@@ -183,6 +195,7 @@ export function AppointmentDetailModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <DialogClose onClick={onClose} />
         <div className="flex flex-col gap-1 pb-4">
           <div className="flex gap-2">
             <h1 className="text-2xl font-bold">Detalles de la Cita</h1>
@@ -206,7 +219,12 @@ export function AppointmentDetailModal({
             </div>
             <div className="rounded-xl border bg-card p-5 shadow-sm">
               <p className="text-sm text-foreground/70">{date}</p>
-              <p className="mt-1 text-2xl font-bold text-foreground">{time}</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
+                {time}
+                {endTime && (
+                  <span className="text-foreground/60"> - {endTime}</span>
+                )}
+              </p>
               {appointment.duration && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-foreground/60">
                   <Clock className="h-3.5 w-3.5" />
