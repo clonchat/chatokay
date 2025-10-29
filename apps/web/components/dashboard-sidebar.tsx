@@ -11,6 +11,7 @@ import {
   Calendar,
   Settings,
   CalendarClock,
+  Plug,
 } from "lucide-react";
 
 const navigation = [
@@ -33,6 +34,11 @@ const navigation = [
     name: "Disponibilidad",
     href: "/disponibilidad",
     icon: Calendar,
+  },
+  {
+    name: "Integraciones",
+    href: "/integraciones",
+    icon: Plug,
   },
   {
     name: "Ajustes",

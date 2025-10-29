@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, internalQuery } from "./_generated/server.js";
+import { mutation, query, internalQuery, action } from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 
 // Query to get the current user's business
 export const getCurrentUserBusiness = query({
@@ -425,5 +426,169 @@ export const generateUploadUrl = mutation({
 
     // Generate and return upload URL
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+// Mutation to update Telegram bot token
+export const updateTelegramToken = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get the authenticated user's identity
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be authenticated");
+    }
+
+    // Find the user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the business
+    const business = await ctx.db.get(args.businessId);
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Verify the user owns this business
+    if (business.userId !== user._id) {
+      throw new Error("User does not own this business");
+    }
+
+    // Validate token format if provided
+    if (args.token !== undefined && args.token !== null && args.token !== "") {
+      // Token format: number:alphanumeric-string
+      const tokenPattern = /^\d+:[A-Za-z0-9_-]+$/;
+      if (!tokenPattern.test(args.token)) {
+        throw new Error("Invalid Telegram bot token format");
+      }
+    }
+
+    // Update the token
+    await ctx.db.patch(args.businessId, {
+      telegramBotToken: args.token || undefined,
+      telegramEnabled: args.token ? true : false,
+    });
+
+    return { success: true };
+  },
+});
+
+// Mutation to toggle Telegram enabled/disabled
+export const toggleTelegram = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Get the authenticated user's identity
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be authenticated");
+    }
+
+    // Find the user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the business
+    const business = await ctx.db.get(args.businessId);
+
+    if (!business) {
+      throw new Error("Business not found");
+    }
+
+    // Verify the user owns this business
+    if (business.userId !== user._id) {
+      throw new Error("User does not own this business");
+    }
+
+    // Check if token exists before enabling
+    if (args.enabled && !business.telegramBotToken) {
+      throw new Error("Cannot enable Telegram without a bot token");
+    }
+
+    // Update the enabled status
+    await ctx.db.patch(args.businessId, {
+      telegramEnabled: args.enabled,
+    });
+
+    return { success: true };
+  },
+});
+
+// Internal query to get all businesses with Telegram enabled
+export const getAllTelegramBusinesses = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const businesses = await ctx.db
+      .query("businesses")
+      .filter((q) => q.eq(q.field("telegramEnabled"), true))
+      .collect();
+
+    return businesses.filter((b) => b.telegramBotToken && b.telegramEnabled);
+  },
+});
+
+// Action to set Telegram webhook
+export const setTelegramWebhook = action({
+  args: {
+    token: v.string(),
+    webhookUrl: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const url = `https://api.telegram.org/bot${args.token}/setWebhook`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: args.webhookUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `Failed to set webhook: ${response.status} ${errorText}`,
+        };
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        return {
+          success: false,
+          error: result.description || "Failed to set webhook",
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting Telegram webhook:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to set webhook",
+      };
+    }
   },
 });

@@ -38,6 +38,8 @@ export default defineSchema({
     ),
     googleCalendarEnabled: v.optional(v.boolean()),
     googleCalendarId: v.optional(v.string()),
+    telegramBotToken: v.optional(v.string()),
+    telegramEnabled: v.optional(v.boolean()),
   })
     .index("by_user_id", ["userId"])
     .index("by_subdomain", ["subdomain"]),
@@ -64,4 +66,22 @@ export default defineSchema({
   })
     .index("by_business_id", ["businessId"])
     .index("by_cancellation_token", ["cancellationToken"]),
+
+  telegramConversations: defineTable({
+    chatId: v.number(),
+    businessId: v.id("businesses"),
+    messages: v.array(
+      v.object({
+        role: v.union(
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
+        ),
+        content: v.string(),
+      })
+    ),
+    lastUpdated: v.number(),
+  })
+    .index("by_chat_id", ["chatId"])
+    .index("by_business_id", ["businessId"]),
 });

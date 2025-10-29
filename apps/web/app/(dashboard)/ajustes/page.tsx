@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { useMutation, useAction } from "convex/react";
-import { useUser, useSignIn } from "@clerk/nextjs";
+import { useSignIn } from "@clerk/nextjs";
 import { api } from "@workspace/backend/_generated/api";
 import { businessAtom } from "@/lib/store/auth-atoms";
 import { Button } from "@workspace/ui/components/button";
@@ -20,22 +20,14 @@ import {
 import toast from "react-hot-toast";
 import { getChatbotUrl } from "@/lib/utils/urls";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { Send, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { Send } from "lucide-react";
 
 export default function AjustesPage() {
   const business = useAtomValue(businessAtom);
-  const { user } = useUser();
   const { signIn } = useSignIn();
   const updateVisualConfig = useMutation(api.businesses.updateVisualConfig);
   const updateBusinessInfo = useMutation(api.businesses.updateBusinessInfo);
   const generateUploadUrl = useMutation(api.businesses.generateUploadUrl);
-  const enableGoogleCalendar = useMutation(
-    api.googleCalendar.enableGoogleCalendar
-  );
-  const disableGoogleCalendar = useMutation(
-    api.googleCalendar.disableGoogleCalendar
-  );
-  const testConnection = useAction(api.googleCalendar.testConnection);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -53,20 +45,6 @@ export default function AjustesPage() {
   const [originalTheme, setOriginalTheme] = useState<"light" | "dark">("light");
   const [originalWelcomeMessage, setOriginalWelcomeMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [isTogglingCalendar, setIsTogglingCalendar] = useState(false);
-
-  // Check if user has Google connected
-  const googleAccount = user?.externalAccounts?.find(
-    (account) => account.provider === "google"
-  );
-  const hasGoogleConnected = !!googleAccount;
-
-  // Debug: Log external accounts
-  if (process.env.NODE_ENV === "development" && user) {
-    console.log("User external accounts:", user.externalAccounts);
-    console.log("Google account found:", googleAccount);
-  }
 
   // Initialize values when business loads
   useEffect(() => {
@@ -214,54 +192,6 @@ export default function AjustesPage() {
       toast.error(error.message || "Error al actualizar configuración");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleConnectGoogle = () => {
-    // Redirect to Clerk's user profile page where they can connect external accounts
-    // This uses the correct OAuth flow that requests all configured scopes including Calendar
-    window.location.href = "/perfil";
-  };
-
-  const handleEnableCalendar = async () => {
-    if (!business) return;
-
-    setIsTogglingCalendar(true);
-    try {
-      // First test the connection
-      setIsTestingConnection(true);
-      const result = await testConnection({ businessId: business._id });
-      setIsTestingConnection(false);
-
-      if (!result.success) {
-        toast.error(result.error || "No se pudo conectar con Google Calendar");
-        return;
-      }
-
-      // Enable calendar sync
-      await enableGoogleCalendar({ businessId: business._id });
-      toast.success("Sincronización con Google Calendar activada");
-      window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message || "Error al activar sincronización");
-    } finally {
-      setIsTogglingCalendar(false);
-      setIsTestingConnection(false);
-    }
-  };
-
-  const handleDisableCalendar = async () => {
-    if (!business) return;
-
-    setIsTogglingCalendar(true);
-    try {
-      await disableGoogleCalendar({ businessId: business._id });
-      toast.success("Sincronización con Google Calendar desactivada");
-      window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message || "Error al desactivar sincronización");
-    } finally {
-      setIsTogglingCalendar(false);
     }
   };
 
@@ -417,151 +347,7 @@ export default function AjustesPage() {
         </CardContent>
       </Card>
 
-      {/* Google Calendar Integration - Third Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Integración con Google Calendar
-          </CardTitle>
-          <CardDescription>
-            Sincroniza automáticamente tus citas confirmadas con tu calendario
-            de Google
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!hasGoogleConnected ? (
-            // Not connected to Google
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Conecta tu cuenta de Google
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Para sincronizar citas con Google Calendar, primero debes
-                    conectar tu cuenta de Google.
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800 space-y-2">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    📝 Pasos para conectar Google Calendar:
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
-                    <li>Haz clic en el botón de abajo</li>
-                    <li>Ve a la sección "Connected accounts" en tu perfil</li>
-                    <li>Click en "Connect" al lado del icono de Google</li>
-                    <li>Autoriza el acceso a Google Calendar</li>
-                    <li>Vuelve a esta página</li>
-                  </ol>
-                </div>
-                <Button
-                  onClick={handleConnectGoogle}
-                  className="w-full sm:w-auto"
-                  size="lg"
-                >
-                  📋 Ir a Mi Perfil
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  💡 <strong>Importante:</strong> Iniciar sesión con Google ≠
-                  Conectar Google Calendar. Son flujos diferentes.
-                </p>
-              </div>
-            </div>
-          ) : !business.googleCalendarEnabled ? (
-            // Google connected but calendar not enabled - SIMPLE VERSION
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                    ✓ Google conectado exitosamente
-                  </p>
-                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                    Ya tienes los permisos necesarios. Solo activa la
-                    sincronización para que tus citas se agreguen
-                    automáticamente a tu calendario.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-muted rounded-lg space-y-2 text-sm">
-                <h4 className="font-medium">📝 ¿Cómo funciona?</h4>
-                <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>
-                    Las citas confirmadas se crean automáticamente en Google
-                    Calendar
-                  </li>
-                  <li>Si cancelas una cita, se elimina del calendario</li>
-                  <li>Si reagendas una cita, se actualiza en el calendario</li>
-                </ul>
-              </div>
-
-              <Button
-                onClick={handleEnableCalendar}
-                disabled={isTogglingCalendar || isTestingConnection}
-                size="lg"
-                className="w-full sm:w-auto"
-              >
-                {isTestingConnection
-                  ? "Verificando..."
-                  : isTogglingCalendar
-                    ? "Activando..."
-                    : "Activar Sincronización con Google Calendar"}
-              </Button>
-
-              <p className="text-xs text-muted-foreground">
-                💡 Al activar, verificaremos que tengas los permisos correctos
-                de Google Calendar.
-              </p>
-            </div>
-          ) : (
-            // Calendar enabled
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Sincronización activa
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Tus citas confirmadas se sincronizan automáticamente con tu
-                    Google Calendar.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleDisableCalendar}
-                  disabled={isTogglingCalendar}
-                  variant="outline"
-                  className="flex-1 sm:flex-none"
-                >
-                  {isTogglingCalendar
-                    ? "Desactivando..."
-                    : "Desactivar Sincronización"}
-                </Button>
-                <Button
-                  onClick={handleConnectGoogle}
-                  variant="ghost"
-                  className="flex-1 sm:flex-none"
-                >
-                  Reconectar Google
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                💡 Usa "Reconectar Google" si necesitas actualizar los permisos
-                de tu cuenta.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Preview - Fourth Section */}
+      {/* Preview - Third Section */}
       {/* <Card>
         <CardHeader>
           <CardTitle>Vista Previa del Chatbot</CardTitle>

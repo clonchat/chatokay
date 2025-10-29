@@ -15,6 +15,7 @@ import type * as clerk from "../clerk.js";
 import type * as email from "../email.js";
 import type * as googleCalendar from "../googleCalendar.js";
 import type * as http from "../http.js";
+import type * as telegram from "../telegram.js";
 import type * as users from "../users.js";
 
 import type {
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   googleCalendar: typeof googleCalendar;
   http: typeof http;
+  telegram: typeof telegram;
   users: typeof users;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
