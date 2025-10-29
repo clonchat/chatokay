@@ -79,7 +79,7 @@ export function NotificationsDropdown({
   };
 
   return (
-    <div className="relative">
+    <div className="relative !mr-1">
       <Button
         variant="ghost"
         size="sm"
@@ -108,7 +108,7 @@ export function NotificationsDropdown({
           />
 
           {/* Dropdown content */}
-          <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-border bg-card shadow-lg">
+          <div className="fixed md:absolute right-2 md:right-0 top-16 md:top-full z-50 mt-2 md:mt-2 w-[calc(100vw-1rem)] md:w-80 max-w-sm md:max-w-none rounded-lg border border-border bg-card shadow-lg">
             <div className="border-b border-border p-3">
               <h3 className="font-semibold text-foreground">
                 Citas Pendientes

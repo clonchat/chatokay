@@ -139,7 +139,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-[100dvh]">
       {/* Header with business info */}
       <header className="border-b bg-card border-border">
         <div className="max-w-4xl mx-auto py-3">
@@ -150,7 +150,7 @@ export default function ChatPage() {
               className="lg:hidden"
               onClick={toggleSidebar}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5 text-foreground" />
             </Button>
             {business.logo && (
               <img
@@ -174,7 +174,7 @@ export default function ChatPage() {
       </header>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto py-6 px-4">
+      <div className="flex-1 min-h-0 overflow-y-auto py-6 px-4">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.map((msg, idx) => (
             <div
@@ -237,7 +237,7 @@ export default function ChatPage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Escribe tu mensaje..."
-              className="flex-1"
+              className="flex-1 text-foreground"
             />
             <Button type="submit" size="icon" disabled={isSending}>
               <Send className="h-4 w-4" />

@@ -214,7 +214,7 @@ export default function IntegracionesPage() {
       </div>
 
       {/* Google Calendar Integration */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -326,12 +326,12 @@ export default function IntegracionesPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={handleDisableCalendar}
                   disabled={isTogglingCalendar}
                   variant="outline"
-                  className="flex-1 sm:flex-none"
+                  className="w-full sm:w-auto sm:flex-none"
                 >
                   {isTogglingCalendar
                     ? "Desactivando..."
@@ -340,7 +340,7 @@ export default function IntegracionesPage() {
                 <Button
                   onClick={handleConnectGoogle}
                   variant="ghost"
-                  className="flex-1 sm:flex-none"
+                  className="w-full sm:w-auto sm:flex-none"
                 >
                   Reconectar Google
                 </Button>

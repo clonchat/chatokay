@@ -65,10 +65,13 @@ export function DashboardTopbar({
 
         {/* Page title */}
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          {/* Hide business name on mobile */}
+          <h1 className="text-xl font-semibold text-foreground hidden md:block">
             {business?.name || "Dashboard"}
           </h1>
-          <p className="text-sm text-muted-foreground">Panel de control</p>
+          <p className="text-sm text-muted-foreground hidden md:block">
+            Panel de control
+          </p>
         </div>
       </div>
 
