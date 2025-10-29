@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import { generateMetadata as genMeta } from "@/lib/utils/metadata";
+
+export const metadata: Metadata = genMeta({
+  title: "Términos de Servicio - ChatOkay",
+  description:
+    "Términos de servicio de ChatOkay. Información sobre el uso de nuestra plataforma, integraciones con Google Calendar, Telegram y WhatsApp, y políticas de uso aceptable.",
+  path: "/terms",
+  type: "article",
+});
 
 export default function TermsOfService() {
   return (
@@ -32,12 +42,55 @@ export default function TermsOfService() {
             <h2 className="text-2xl font-semibold mb-4">
               2. Description of Service
             </h2>
-            <p className="text-muted-foreground">
-              ChatOkay is a professional chat and communication platform that
-              provides messaging, file sharing, and collaboration tools for
-              businesses and individuals. The service is provided "as is" and we
-              reserve the right to modify or discontinue the service at any
-              time.
+            <p className="text-muted-foreground mb-4">
+              ChatOkay is an AI-powered appointment assistant for businesses
+              that provides automated appointment scheduling, chat services, and
+              calendar management tools. Our service integrates with third-party
+              platforms including Google Calendar, Telegram, and WhatsApp to
+              help businesses manage appointments efficiently.
+            </p>
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h3 className="text-lg font-medium mb-2">
+                Google Calendar Integration
+              </h3>
+              <p className="text-muted-foreground text-sm mb-2">
+                ChatOkay uses Google Calendar API to provide calendar
+                synchronization features. By using this service:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm">
+                <li>
+                  You grant ChatOkay permission to access and manage your Google
+                  Calendar data
+                </li>
+                <li>
+                  We will only access calendar information necessary to provide
+                  appointment scheduling services
+                </li>
+                <li>
+                  All data access is performed in accordance with Google's API
+                  Services User Data Policy
+                </li>
+                <li>
+                  You may revoke access at any time through your Google account
+                  settings
+                </li>
+              </ul>
+              <p className="text-muted-foreground text-sm mt-2">
+                Our use of information received from Google APIs adheres to the{" "}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  className="text-primary underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements.
+              </p>
+            </div>
+            <p className="text-muted-foreground mt-4">
+              The service is provided "as is" and we reserve the right to modify
+              or discontinue the service at any time.
             </p>
           </section>
 
@@ -204,8 +257,11 @@ export default function TermsOfService() {
               contact us at:
             </p>
             <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p>Email: legal@chatokay.com</p>
-              <p>Address: Baker Street, 12, Wayne, EE. UU.</p>
+              <p className="font-medium">Email: chatokay.dev@gmail.com</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para consultas legales o sobre el uso de nuestras integraciones
+                con Google Calendar
+              </p>
             </div>
           </section>
         </CardContent>

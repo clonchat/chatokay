@@ -1,0 +1,50 @@
+# Robots.txt para ChatOkay
+# Permite todos los crawlers incluyendo crawlers de IA
+
+User-agent: *
+Allow: /
+
+# Crawlers de IA comunes
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# No indexar páginas de autenticación y dashboard
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /ajustes
+Disallow: /citas
+Disallow: /disponibilidad
+Disallow: /integraciones
+Disallow: /perfil
+Disallow: /servicios
+Disallow: /debug
+
+# Permitir acceso a subdominios de clientes (son páginas públicas)
+Allow: /*
+
+# Sitemap
+Sitemap: https://chatokay.com/sitemap.xml
+

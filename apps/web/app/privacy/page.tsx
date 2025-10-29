@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import { generateMetadata as genMeta } from "@/lib/utils/metadata";
+
+export const metadata: Metadata = genMeta({
+  title: "Política de Privacidad - ChatOkay",
+  description:
+    "Política de privacidad de ChatOkay. Información sobre cómo recopilamos, usamos y protegemos tus datos personales. Cumplimiento con la Política de Datos de Usuario de Google API Services.",
+  path: "/privacy",
+  type: "article",
+});
 
 export default function PrivacyPolicy() {
   return (
@@ -115,13 +125,66 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-2xl font-semibold mb-4">
-              6. Third-Party Services
+              6. Third-Party Services and Google API Services
             </h2>
-            <p className="text-muted-foreground">
-              Our services may integrate with third-party services. We are not
-              responsible for the privacy practices of these third parties. We
-              encourage you to review their privacy policies.
-            </p>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Our services integrate with third-party platforms including
+                Google Calendar, Telegram, and WhatsApp. We are not responsible
+                for the privacy practices of these third parties. We encourage
+                you to review their privacy policies.
+              </p>
+              <div className="p-4 bg-muted rounded-lg">
+                <h3 className="text-lg font-medium mb-2">
+                  Google Calendar API Usage
+                </h3>
+                <p className="text-muted-foreground text-sm mb-3">
+                  When you connect your Google Calendar account to ChatOkay, we
+                  access the following data:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm mb-3">
+                  <li>Calendar events and availability</li>
+                  <li>Calendar metadata (names, descriptions, locations)</li>
+                  <li>Calendar settings (time zones, working hours)</li>
+                </ul>
+                <p className="text-muted-foreground text-sm mb-2">
+                  <strong>Limited Use of Google User Data:</strong> Our use of
+                  information received from Google APIs adheres to the{" "}
+                  <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    className="text-primary underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including the Limited Use requirements. Specifically:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm">
+                  <li>
+                    We only use this data to provide appointment scheduling
+                    services
+                  </li>
+                  <li>
+                    We do not transfer your calendar data to third parties
+                    except as necessary to provide our service
+                  </li>
+                  <li>
+                    We do not use your calendar data for advertising or other
+                    commercial purposes
+                  </li>
+                  <li>
+                    We do not allow humans to read your calendar data unless you
+                    request support and authorize access
+                  </li>
+                </ul>
+                <p className="text-muted-foreground text-sm mt-3">
+                  You can revoke access to your Google Calendar data at any time
+                  through your Google account settings or by disconnecting the
+                  integration in your ChatOkay dashboard.
+                </p>
+              </div>
+            </div>
           </section>
 
           <section>
@@ -153,8 +216,11 @@ export default function PrivacyPolicy() {
               contact us at:
             </p>
             <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p>Email: privacy@chatokay.com</p>
-              <p>Address: Baker Street, 12, Wayne, EE. UU.</p>
+              <p className="font-medium">Email: chatokay.dev@gmail.com</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para consultas sobre privacidad o el manejo de datos de Google
+                Calendar
+              </p>
             </div>
           </section>
         </CardContent>

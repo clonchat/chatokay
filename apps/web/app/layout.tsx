@@ -1,7 +1,12 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata } from "next";
 
 import "@workspace/ui/globals.css";
 import { Providers } from "@/components/providers";
+import {
+  generateMetadata as genMeta,
+  businessKeywords,
+} from "@/lib/utils/metadata";
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -13,9 +18,23 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 });
 
-export const metadata = {
-  title: "ChatOkay",
-  description: "Professional chat and communication platform",
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://chatokay.com";
+
+const baseMetadata = genMeta({
+  title: "ChatOkay - Asistente de Citas con IA para Negocios",
+  description:
+    "Automatiza la gestión de citas con un asistente de IA. Integra Google Calendar, Telegram y WhatsApp. Subdominio personalizado y dashboard completo. Perfecto para salones, clínicas, gimnasios y más.",
+  keywords: businessKeywords,
+});
+
+export const metadata: Metadata = {
+  ...baseMetadata,
+  metadataBase: new URL(baseUrl),
+  authors: [{ name: "ChatOkay Team" }],
+  creator: "ChatOkay",
+  publisher: "ChatOkay",
+  applicationName: "ChatOkay",
+  referrer: "origin-when-cross-origin",
   icons: {
     icon: [
       { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -42,6 +61,11 @@ export const metadata = {
     ],
   },
   manifest: "/favicon/site.webmanifest",
+  verification: {
+    // Puedes agregar verification codes aquí cuando los tengas
+    // google: "verification-code",
+    // yandex: "verification-code",
+  },
 };
 
 export default function RootLayout({
@@ -50,7 +74,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
