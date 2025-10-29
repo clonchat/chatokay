@@ -1235,3 +1235,155 @@ export const getAppointmentByTokenInternal = internalQuery({
     };
   },
 });
+
+// Query to get appointment statistics by status
+export const getAppointmentStats = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const stats = {
+      pending: 0,
+      confirmed: 0,
+      cancelled: 0,
+      total: appointments.length,
+    };
+
+    for (const apt of appointments) {
+      if (apt.status === "pending") stats.pending++;
+      else if (apt.status === "confirmed") stats.confirmed++;
+      else if (apt.status === "cancelled") stats.cancelled++;
+    }
+
+    return stats;
+  },
+});
+
+// Query to get appointments grouped by service
+export const getAppointmentsByService = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const serviceMap = new Map<string, number>();
+
+    for (const apt of appointments) {
+      if (apt.status !== "cancelled") {
+        const count = serviceMap.get(apt.serviceName) || 0;
+        serviceMap.set(apt.serviceName, count + 1);
+      }
+    }
+
+    return Array.from(serviceMap.entries()).map(([serviceName, count]) => ({
+      serviceName,
+      count,
+    }));
+  },
+});
+
+// Query to get appointments grouped by day of week
+export const getAppointmentsByDayOfWeek = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const dayMap: Record<string, number> = {
+      Lunes: 0,
+      Martes: 0,
+      Miércoles: 0,
+      Jueves: 0,
+      Viernes: 0,
+      Sábado: 0,
+      Domingo: 0,
+    };
+
+    for (const apt of appointments) {
+      if (apt.status !== "cancelled") {
+        const date = new Date(apt.appointmentTime);
+        const dayOfWeekEnglish = date.toLocaleDateString("en-US", {
+          weekday: "long",
+        });
+
+        const dayMapEnglish: Record<string, string> = {
+          Monday: "Lunes",
+          Tuesday: "Martes",
+          Wednesday: "Miércoles",
+          Thursday: "Jueves",
+          Friday: "Viernes",
+          Saturday: "Sábado",
+          Sunday: "Domingo",
+        };
+
+        const daySpanish = dayMapEnglish[dayOfWeekEnglish] || dayOfWeekEnglish;
+        if (dayMap[daySpanish] !== undefined) {
+          dayMap[daySpanish]++;
+        }
+      }
+    }
+
+    return Object.entries(dayMap).map(([day, count]) => ({
+      day,
+      count,
+    }));
+  },
+});
+
+// Query to get appointments trend for the last 30 days
+export const getAppointmentsTrend = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+
+    // Filter appointments from last 30 days
+    const recentAppointments = appointments.filter((apt) => {
+      const aptDate = new Date(apt.appointmentTime);
+      return aptDate >= thirtyDaysAgo && apt.status !== "cancelled";
+    });
+
+    // Group by date
+    const dateMap = new Map<string, number>();
+
+    for (const apt of recentAppointments) {
+      const date = new Date(apt.appointmentTime);
+      const dateStr = date.toISOString().split("T")[0] ?? "";
+      const count = dateMap.get(dateStr) || 0;
+      dateMap.set(dateStr, count + 1);
+    }
+
+    // Generate all dates in range and fill missing dates with 0
+    const trendData: Array<{ date: string; count: number }> = [];
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(thirtyDaysAgo);
+      date.setDate(thirtyDaysAgo.getDate() + i);
+      const dateStr = date.toISOString().split("T")[0] ?? "";
+      const count = dateMap.get(dateStr) || 0;
+      trendData.push({ date: dateStr, count });
+    }
+
+    return trendData;
+  },
+});

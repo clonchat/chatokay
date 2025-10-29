@@ -11,8 +11,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { useAtomValue } from "jotai";
-import { Bot, Calendar, ExternalLink, Settings, Wrench } from "lucide-react";
+import { Bot, Calendar, ExternalLink, Wrench } from "lucide-react";
 import Link from "next/link";
+import { StatusDistributionChart } from "@/components/dashboard/status-distribution-chart";
+import { ServiceBookingsChart } from "@/components/dashboard/service-bookings-chart";
+import { DayOfWeekChart } from "@/components/dashboard/day-of-week-chart";
+import { AppointmentsTrendChart } from "@/components/dashboard/appointments-trend-chart";
 
 export default function DashboardPage() {
   const business = useAtomValue(businessAtom);
@@ -119,63 +123,16 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick actions */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-foreground">Acciones Rápidas</CardTitle>
-          <CardDescription className="text-foreground/60">
-            Gestiona tu negocio desde aquí
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Button
-              asChild
-              variant="outline"
-              className="h-20 flex-col gap-2 border-border text-foreground hover:bg-muted"
-            >
-              <Link href="/servicios">
-                <Wrench className="h-6 w-6" />
-                <span>Gestionar Servicios</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="h-20 flex-col gap-2 border-border text-foreground hover:bg-muted"
-            >
-              <Link href="/disponibilidad">
-                <Calendar className="h-6 w-6" />
-                <span>Configurar Horarios</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="h-20 flex-col gap-2 border-border text-foreground hover:bg-muted"
-            >
-              <Link href="/ajustes">
-                <Settings className="h-6 w-6" />
-                <span>Ajustes del Negocio</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="h-20 flex-col gap-2 border-border text-foreground hover:bg-muted"
-            >
-              <a
-                href={`https://${business.subdomain}.chatokay.com`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="h-6 w-6" />
-                <span>Ver Chatbot</span>
-              </a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Charts section */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <StatusDistributionChart businessId={business._id} />
+        <ServiceBookingsChart businessId={business._id} />
+        <DayOfWeekChart businessId={business._id} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-1">
+        <AppointmentsTrendChart businessId={business._id} />
+      </div>
 
       {/* Next steps */}
       <Card className="bg-card border-border">
