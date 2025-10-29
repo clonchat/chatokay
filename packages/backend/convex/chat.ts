@@ -331,3 +331,109 @@ export const sendMessage = action({
     };
   },
 });
+
+/**
+ * Chat action for the landing page chatbot
+ * Simple chatbot to answer questions about ChatOkay without requiring a business
+ */
+export const sendLandingMessage = action({
+  args: {
+    messages: v.array(
+      v.object({
+        role: v.union(
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
+        ),
+        content: v.string(),
+      })
+    ),
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ content: string }> => {
+    console.log("[Landing Chat] Starting sendLandingMessage handler");
+
+    const systemPrompt = `Eres un asistente virtual amigable y profesional para ChatOkay, una plataforma de asistente de citas con IA para negocios.
+
+  INFORMACIÓN SOBRE CHATOKAY:
+  - ChatOkay es una plataforma que permite a los negocios automatizar la gestión de citas usando inteligencia artificial
+  - Los negocios pueden crear un chatbot personalizado con subdominio propio
+  - Incluye integraciones con Google Calendar, Telegram y WhatsApp
+  - Los clientes pueden agendar citas 24/7 a través del chatbot
+  - Los negocios tienen acceso a un dashboard completo para gestionar citas
+  - Es gratuito para empezar
+  - Email de contacto: chatokay.dev@gmail.com
+  - Los usuarios pueden registrarse en /sign-up o iniciar sesión en /sign-in
+
+  TU OBJETIVO:
+  Responder preguntas sobre ChatOkay de manera amable, clara y concisa. 
+  Si alguien pregunta sobre cómo funciona, precios, características, o cómo registrarse, proporciona información útil.
+
+  INSTRUCCIONES:
+  - Sé amable, profesional y entusiasta sobre ChatOkay
+  - Devuelve el texto siempre en markdown, usa emojis moderadamente para facilitar la lectura
+  - Cuida la estructura y legibilidad del texto
+  - Si no sabes algo específico, invita al usuario a contactar por email: chatokay.dev@gmail.com
+  - Anima a los usuarios interesados a registrarse en /sign-up
+  - Sé conciso pero completo en tus respuestas
+
+  Responde en español de forma natural y conversacional.`;
+
+    // Convert frontend messages to format expected by Convex Agent
+    const agentMessages = args.messages
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+
+    // Use the session ID to maintain conversation context
+    const sessionUserId = args.sessionId;
+
+    // Create agent instance (simpler, no tools needed for landing)
+    const agent = new Agent(components.agent, {
+      name: "ChatOkay Landing Agent",
+      languageModel: openrouter("minimax/minimax-m2:free"),
+      instructions: systemPrompt,
+      maxSteps: 3,
+    });
+
+    console.log("[Landing Chat] Calling agent with session:", sessionUserId);
+
+    const result = await agent.generateText(
+      ctx,
+      { userId: sessionUserId },
+      {
+        messages: agentMessages,
+      }
+    );
+
+    console.log("[Landing Chat] Agent response received:", {
+      text: result.text,
+      finishReason: result.finishReason,
+    });
+
+    // Remove any reasoning tags from the response
+    let cleanText =
+      result.text || "Lo siento, no pude procesar tu solicitud correctamente.";
+
+    cleanText = cleanText.replace(
+      /<think>[\s\S]*?<\/redacted_reasoning>/gi,
+      ""
+    );
+    cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    cleanText = cleanText.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
+    cleanText = cleanText.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+    cleanText = cleanText.replace(
+      /<reasoning_text>[\s\S]*?<\/reasoning_text>/gi,
+      ""
+    );
+
+    // Clean up extra whitespace
+    cleanText = cleanText.trim();
+
+    return {
+      content: cleanText,
+    };
+  },
+});

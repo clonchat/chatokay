@@ -31,12 +31,11 @@ import {
   Globe,
   Plug,
   Mail,
-  Send,
-  Phone,
   MessageCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { JsonLd } from "@/components/json-ld";
+import { LandingChatbot } from "@/components/landing-chatbot";
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://chatokay.com";
 
@@ -120,19 +119,7 @@ export default function Page() {
     }
   }, [authStatus, redirectToCorrectPage]);
 
-  // Show loading state while checking authentication
-  if (authStatus === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-svh">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">ChatOkay</h1>
-          <p className="text-muted-foreground mt-2">Cargando...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If user is authenticated or needs onboarding, they'll be redirected
+  // If user is authenticated or needs onboarding, show loading while redirecting
   if (authStatus === "authenticated" || authStatus === "onboarding") {
     return (
       <div className="flex items-center justify-center min-h-svh">
@@ -144,10 +131,12 @@ export default function Page() {
     );
   }
 
-  // User is not signed in, show landing page
+  // Show landing page immediately for unauthenticated users and while loading
+  // This improves UX by not showing an unnecessary loading screen
   return (
     <>
       <JsonLd data={structuredData} />
+      <LandingChatbot />
       <div className="min-h-svh bg-background">
         {/* Hero Section - Full Viewport */}
         <section className="relative flex items-center justify-center min-h-screen px-4 py-20 overflow-hidden">
@@ -557,54 +546,22 @@ export default function Page() {
 
         {/* Contact Section */}
         <section className="py-24 md:py-32 px-4 bg-gradient-to-b from-background to-muted/20">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16 space-y-4">
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-light tracking-tight mb-4">
-                ¿Tienes preguntas?
-              </h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto font-light">
-                Estamos aquí para ayudarte. Contáctanos directamente
-              </p>
+          <div className="max-w-2xl mx-auto text-center space-y-6">
+            <h2 className="text-3xl md:text-4xl font-light tracking-tight">
+              ¿Tienes preguntas?
+            </h2>
+            <p className="text-lg text-muted-foreground font-light">
+              Contáctanos y te responderemos lo antes posible
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Mail className="w-5 h-5 text-primary" />
+              <a
+                href="mailto:chatokay.dev@gmail.com"
+                className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+              >
+                chatokay.dev@gmail.com
+              </a>
             </div>
-            <Card className="border-0 shadow-lg bg-background/80 backdrop-blur-sm">
-              <CardHeader className="text-center pb-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
-                  <Mail className="w-8 h-8 text-primary" />
-                </div>
-                <CardTitle className="text-2xl font-medium mb-2">
-                  Contáctanos
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Escríbenos y te responderemos lo antes posible
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-center gap-4 p-6 rounded-xl bg-muted/50">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="flex flex-col">
-                    <p className="text-sm text-muted-foreground font-light">
-                      Email
-                    </p>
-                    <a
-                      href="mailto:chatokay.dev@gmail.com"
-                      className="text-lg font-medium text-foreground hover:text-primary transition-colors"
-                    >
-                      chatokay.dev@gmail.com
-                    </a>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <Button asChild size="lg" className="rounded-full px-8">
-                    <a href="mailto:chatokay.dev@gmail.com">
-                      <Send className="w-4 h-4 mr-2" />
-                      Enviar Email
-                    </a>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </section>
 
