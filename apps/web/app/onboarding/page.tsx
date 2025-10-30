@@ -19,6 +19,16 @@ import {
 } from "@workspace/ui/components/card";
 import toast from "react-hot-toast";
 import type { Id } from "@workspace/backend/_generated/dataModel";
+import {
+  RotateCcw,
+  CheckSquare,
+  Square,
+  Clock,
+  Sun,
+  Sunset,
+  Moon,
+} from "lucide-react";
+import { cn } from "@workspace/ui/lib/utils";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -125,6 +135,12 @@ export default function OnboardingPage() {
   const [selectedSlots, setSelectedSlots] = useState<boolean[][]>(() =>
     DAYS.map(() => TIME_SLOTS.map(() => false))
   );
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{
+    dayIndex: number;
+    slotIndex: number;
+  } | null>(null);
+  const [dragValue, setDragValue] = useState<boolean>(false);
 
   // Convert existing availability to calendar slots
   useEffect(() => {
@@ -316,14 +332,60 @@ export default function OnboardingPage() {
   };
 
   // Step 4: Availability (Calendar)
-  const toggleSlot = (dayIndex: number, slotIndex: number) => {
+  const toggleSlot = (dayIndex: number, slotIndex: number, value?: boolean) => {
     const newSlots = selectedSlots.map((day, dIdx) =>
       dIdx === dayIndex
-        ? day.map((slot, sIdx) => (sIdx === slotIndex ? !slot : slot))
+        ? day.map((slot, sIdx) =>
+            sIdx === slotIndex ? (value !== undefined ? value : !slot) : slot
+          )
         : day
     );
     setSelectedSlots(newSlots);
   };
+
+  const handleSlotMouseDown = (dayIndex: number, slotIndex: number) => {
+    setIsDragging(true);
+    const currentValue = selectedSlots[dayIndex]?.[slotIndex] || false;
+    setDragValue(!currentValue);
+    setDragStart({ dayIndex, slotIndex });
+    toggleSlot(dayIndex, slotIndex);
+  };
+
+  const handleSlotMouseEnter = (dayIndex: number, slotIndex: number) => {
+    if (isDragging && dragStart) {
+      const startDay = dragStart.dayIndex;
+      const startSlot = dragStart.slotIndex;
+
+      // Only allow dragging within the same day
+      if (dayIndex === startDay) {
+        const minSlot = Math.min(startSlot, slotIndex);
+        const maxSlot = Math.max(startSlot, slotIndex);
+
+        const newSlots = selectedSlots.map((day, dIdx) =>
+          dIdx === dayIndex
+            ? day.map((slot, sIdx) =>
+                sIdx >= minSlot && sIdx <= maxSlot ? dragValue : slot
+              )
+            : day
+        );
+        setSelectedSlots(newSlots);
+      }
+    }
+  };
+
+  const handleSlotMouseUp = () => {
+    setIsDragging(false);
+    setDragStart(null);
+  };
+
+  // Set up global mouse up listener
+  useEffect(() => {
+    if (isDragging) {
+      const handleUp = () => handleSlotMouseUp();
+      window.addEventListener("mouseup", handleUp);
+      return () => window.removeEventListener("mouseup", handleUp);
+    }
+  }, [isDragging]);
 
   const toggleDay = (dayIndex: number) => {
     const allSelected = selectedSlots[dayIndex]?.every((slot) => slot);
@@ -332,6 +394,67 @@ export default function OnboardingPage() {
     );
     setSelectedSlots(newSlots);
   };
+
+  // Quick action functions
+  const setTimeRange = (
+    dayIndex: number,
+    startHour: number,
+    endHour: number
+  ) => {
+    const startSlotIndex = TIME_SLOTS.findIndex((time) => {
+      const [hour] = time.split(":").map(Number);
+      return hour !== undefined && hour >= startHour;
+    });
+    const endSlotIndex = TIME_SLOTS.findIndex((time) => {
+      const [hour] = time.split(":").map(Number);
+      return hour !== undefined && hour >= endHour;
+    });
+
+    if (startSlotIndex !== -1) {
+      const newSlots = selectedSlots.map((day, dIdx) =>
+        dIdx === dayIndex
+          ? day.map((slot, sIdx) =>
+              sIdx >= startSlotIndex &&
+              (endSlotIndex === -1 || sIdx < endSlotIndex)
+                ? true
+                : slot
+            )
+          : day
+      );
+      setSelectedSlots(newSlots);
+    }
+  };
+
+  const clearDay = (dayIndex: number) => {
+    const newSlots = selectedSlots.map((day, dIdx) =>
+      dIdx === dayIndex ? day.map(() => false) : day
+    );
+    setSelectedSlots(newSlots);
+  };
+
+  const setAllDays = () => {
+    const newSlots = selectedSlots.map(() => TIME_SLOTS.map(() => true));
+    setSelectedSlots(newSlots);
+  };
+
+  const clearAllDays = () => {
+    const newSlots = selectedSlots.map(() => TIME_SLOTS.map(() => false));
+    setSelectedSlots(newSlots);
+  };
+
+  // Group time slots by period
+  const morningSlots = TIME_SLOTS.filter((time) => {
+    const [hour] = time.split(":").map(Number);
+    return hour !== undefined && hour >= 8 && hour < 12;
+  });
+  const afternoonSlots = TIME_SLOTS.filter((time) => {
+    const [hour] = time.split(":").map(Number);
+    return hour !== undefined && hour >= 12 && hour < 18;
+  });
+  const eveningSlots = TIME_SLOTS.filter((time) => {
+    const [hour] = time.split(":").map(Number);
+    return hour !== undefined && hour >= 18;
+  });
 
   const convertSlotsToAvailability = () => {
     const availability = DAYS.map((day, dayIndex) => {
@@ -694,8 +817,38 @@ export default function OnboardingPage() {
               <div>
                 <Label>Disponibilidad Semanal</Label>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Haz clic en los bloques para marcar tu disponibilidad
+                  Haz clic o arrastra para seleccionar horarios. Usa los botones
+                  rápidos para configurar períodos comunes.
                 </p>
+              </div>
+
+              {/* Global Actions */}
+              <div className="bg-card rounded-lg border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Acciones rápidas:
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={setAllDays}
+                    className="h-8"
+                  >
+                    <CheckSquare className="h-3 w-3 mr-1" />
+                    Seleccionar todo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllDays}
+                    className="h-8"
+                  >
+                    <Square className="h-3 w-3 mr-1" />
+                    Limpiar todo
+                  </Button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -704,39 +857,204 @@ export default function OnboardingPage() {
                     {/* Header row */}
                     <div className="p-2 font-medium"></div>
                     {DAYS.map((day, dayIndex) => (
-                      <div key={day} className="p-2 font-medium text-center">
+                      <div
+                        key={day}
+                        className="p-2 font-medium text-center space-y-1"
+                      >
                         <button
                           type="button"
                           onClick={() => toggleDay(dayIndex)}
-                          className="text-xs underline hover:text-primary"
+                          className="text-xs font-semibold hover:text-primary transition-colors block w-full"
                         >
-                          {day}
+                          {day.substring(0, 3)}
                         </button>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-1"
+                            onClick={() => setTimeRange(dayIndex, 8, 12)}
+                            title="Mañana (8-12)"
+                          >
+                            <Sun className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-1"
+                            onClick={() => setTimeRange(dayIndex, 12, 18)}
+                            title="Tarde (12-18)"
+                          >
+                            <Sunset className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-1"
+                            onClick={() => clearDay(dayIndex)}
+                            title="Limpiar día"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
 
-                    {/* Time slots */}
-                    {TIME_SLOTS.map((time, slotIndex) => (
-                      <div key={time} className="contents">
-                        <div className="p-2 text-right font-medium text-muted-foreground">
-                          {time}
+                    {/* Morning section */}
+                    {morningSlots.length > 0 && (
+                      <>
+                        <div className="col-span-8 py-2 border-t border-border">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <Sun className="h-3 w-3" />
+                            <span>Mañana</span>
+                          </div>
                         </div>
-                        {DAYS.map((_, dayIndex) => (
-                          <button
-                            key={`${dayIndex}-${slotIndex}`}
-                            type="button"
-                            onClick={() => toggleSlot(dayIndex, slotIndex)}
-                            className={`p-2 h-8 border rounded transition-colors ${
-                              selectedSlots[dayIndex]?.[slotIndex]
-                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                : "bg-muted hover:bg-muted/70"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ))}
+                        {morningSlots.map((time) => {
+                          const slotIndex = TIME_SLOTS.indexOf(time);
+                          return (
+                            <div key={time} className="contents">
+                              <div className="p-2 text-right font-medium text-muted-foreground text-[10px]">
+                                {time}
+                              </div>
+                              {DAYS.map((_, dayIndex) => (
+                                <button
+                                  key={`${dayIndex}-${slotIndex}`}
+                                  type="button"
+                                  onMouseDown={() =>
+                                    handleSlotMouseDown(dayIndex, slotIndex)
+                                  }
+                                  onMouseEnter={() =>
+                                    handleSlotMouseEnter(dayIndex, slotIndex)
+                                  }
+                                  className={cn(
+                                    "h-6 border rounded transition-all cursor-pointer",
+                                    selectedSlots[dayIndex]?.[slotIndex]
+                                      ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                                      : "bg-muted hover:bg-muted/70 border-border"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Afternoon section */}
+                    {afternoonSlots.length > 0 && (
+                      <>
+                        <div className="col-span-8 py-2 border-t border-border">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <Sunset className="h-3 w-3" />
+                            <span>Tarde</span>
+                          </div>
+                        </div>
+                        {afternoonSlots.map((time) => {
+                          const slotIndex = TIME_SLOTS.indexOf(time);
+                          return (
+                            <div key={time} className="contents">
+                              <div className="p-2 text-right font-medium text-muted-foreground text-[10px]">
+                                {time}
+                              </div>
+                              {DAYS.map((_, dayIndex) => (
+                                <button
+                                  key={`${dayIndex}-${slotIndex}`}
+                                  type="button"
+                                  onMouseDown={() =>
+                                    handleSlotMouseDown(dayIndex, slotIndex)
+                                  }
+                                  onMouseEnter={() =>
+                                    handleSlotMouseEnter(dayIndex, slotIndex)
+                                  }
+                                  className={cn(
+                                    "h-6 border rounded transition-all cursor-pointer",
+                                    selectedSlots[dayIndex]?.[slotIndex]
+                                      ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                                      : "bg-muted hover:bg-muted/70 border-border"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Evening section */}
+                    {eveningSlots.length > 0 && (
+                      <>
+                        <div className="col-span-8 py-2 border-t border-border">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <Moon className="h-3 w-3" />
+                            <span>Noche</span>
+                          </div>
+                        </div>
+                        {eveningSlots.map((time) => {
+                          const slotIndex = TIME_SLOTS.indexOf(time);
+                          return (
+                            <div key={time} className="contents">
+                              <div className="p-2 text-right font-medium text-muted-foreground text-[10px]">
+                                {time}
+                              </div>
+                              {DAYS.map((_, dayIndex) => (
+                                <button
+                                  key={`${dayIndex}-${slotIndex}`}
+                                  type="button"
+                                  onMouseDown={() =>
+                                    handleSlotMouseDown(dayIndex, slotIndex)
+                                  }
+                                  onMouseEnter={() =>
+                                    handleSlotMouseEnter(dayIndex, slotIndex)
+                                  }
+                                  className={cn(
+                                    "h-6 border rounded transition-all cursor-pointer",
+                                    selectedSlots[dayIndex]?.[slotIndex]
+                                      ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                                      : "bg-muted hover:bg-muted/70 border-border"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 </div>
+              </div>
+
+              {/* Help text */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Consejos de uso
+                </h3>
+                <ul className="list-disc list-inside space-y-1.5 text-sm text-foreground/60">
+                  <li>
+                    <strong>Clic:</strong> Selecciona o deselecciona un horario
+                    individual
+                  </li>
+                  <li>
+                    <strong>Arrastrar:</strong> Mantén presionado y arrastra
+                    para seleccionar múltiples horarios consecutivos
+                  </li>
+                  <li>
+                    <strong>Iconos rápidos:</strong> Usa los botones de sol para
+                    mañana/tarde, o el botón de limpiar para limpiar un día
+                  </li>
+                  <li>
+                    <strong>Día completo:</strong> Haz clic en el nombre del día
+                    para seleccionar/deseleccionar todo el día
+                  </li>
+                  <li>
+                    Los bloques{" "}
+                    <span className="inline-block w-3 h-3 bg-primary rounded"></span>{" "}
+                    indican horarios disponibles
+                  </li>
+                </ul>
               </div>
 
               <div className="flex gap-2">

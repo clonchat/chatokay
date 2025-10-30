@@ -10,14 +10,60 @@ import {
 } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
 import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 
 export default function PerfilPage() {
   const { user } = useUser();
   const { signOut } = useClerk();
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Check for Google connection success parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_connected") === "true") {
+      toast.success("¡Google conectado exitosamente!");
+      // Remove the parameter from URL
+      window.history.replaceState({}, "", "/perfil");
+    }
+  }, []);
 
   const googleAccount = user?.externalAccounts?.find(
     (account) => account.provider === "google"
   );
+
+  // Check if user signed in with email (no Google account linked)
+  const signedInWithEmail = !googleAccount;
+
+  const handleConnectGoogle = async () => {
+    if (!user) {
+      toast.error("Error: Usuario no encontrado");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      // Use Clerk's createExternalAccount to link Google without signing out
+      const externalAccount = await user.createExternalAccount({
+        strategy: "oauth_google",
+        redirectUrl: `${window.location.origin}/perfil?google_connected=true`,
+      });
+
+      // Redirect to the external verification URL provided by Clerk
+      if (externalAccount?.verification?.externalVerificationRedirectURL) {
+        window.location.href =
+          externalAccount.verification.externalVerificationRedirectURL.toString();
+      } else {
+        throw new Error("No se pudo obtener la URL de verificación");
+      }
+    } catch (error: any) {
+      console.error("Error connecting Google:", error);
+      toast.error(
+        "Error al conectar Google: " + (error.message || "Error desconocido")
+      );
+      setIsConnecting(false);
+    }
+  };
 
   const handleReconnectGoogle = async () => {
     // The simplest way to get new scopes is to sign out and sign in again
@@ -135,15 +181,78 @@ export default function PerfilPage() {
               <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-900 dark:text-blue-100">
                   ✅ <strong>Siguiente paso:</strong> Ve a{" "}
-                  <a href="/ajustes" className="underline font-medium">
-                    Ajustes
+                  <a href="/integraciones" className="underline font-medium">
+                    Integraciones
                   </a>{" "}
                   para activar la sincronización con Google Calendar.
                 </p>
               </div>
             </div>
+          ) : signedInWithEmail ? (
+            // User signed in with email - offer to connect Google
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Conecta tu cuenta de Google
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Te registraste con correo electrónico. Para usar Google
+                    Calendar, necesitas conectar tu cuenta de Google. Esto
+                    mantendrá tu cuenta y todos tus datos intactos.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg space-y-3 text-sm">
+                <p className="font-medium">
+                  📝 Pasos para conectar Google Calendar:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                  <li>Haz clic en el botón "Conectar Google" de abajo</li>
+                  <li>Serás redirigido a Google para autorizar el acceso</li>
+                  <li>
+                    <strong>Acepta TODOS los permisos</strong> incluyendo acceso
+                    a Calendar
+                  </li>
+                  <li>Una vez autorizado, volverás aquí automáticamente</li>
+                  <li>
+                    Ve a{" "}
+                    <a href="/integraciones" className="underline font-medium">
+                      Integraciones
+                    </a>{" "}
+                    para activar la sincronización
+                  </li>
+                </ol>
+
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-900 dark:text-amber-100">
+                    <strong>⚠️ Importante:</strong> Asegúrate de que Google te
+                    muestre permisos para "Ver, editar, compartir y eliminar
+                    permanentemente todos los calendarios..." - esto es
+                    necesario para la sincronización.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleConnectGoogle}
+                disabled={isConnecting}
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                {isConnecting ? "Conectando..." : "Conectar Google"}
+              </Button>
+
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Nota:</strong> Tu cuenta actual y todos tus datos se
+                mantendrán intactos. Solo estamos vinculando Google a tu cuenta
+                existente.
+              </p>
+            </div>
           ) : (
-            // Google not connected - User needs to sign out and sign in again
+            // User signed in with Google but needs to reconnect for Calendar permissions
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-500 mt-0.5" />

@@ -219,12 +219,17 @@ export function AppointmentDetailModal({
             </div>
             <div className="rounded-xl border bg-card p-5 shadow-sm">
               <p className="text-sm text-foreground/70">{date}</p>
-              <p className="mt-1 text-2xl font-bold text-foreground">
-                {time}
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-2xl font-bold text-foreground">{time}</p>
                 {endTime && (
-                  <span className="text-foreground/60"> - {endTime}</span>
+                  <>
+                    <span className="text-foreground/60 text-xl">-</span>
+                    <p className="text-2xl font-bold text-foreground">
+                      {endTime}
+                    </p>
+                  </>
                 )}
-              </p>
+              </div>
               {appointment.duration && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-foreground/60">
                   <Clock className="h-3.5 w-3.5" />
@@ -236,55 +241,58 @@ export function AppointmentDetailModal({
 
           <hr className="border-border" />
 
-          {/* Customer Info */}
+          {/* Customer and Service */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
               <User className="h-4 w-4" />
-              Cliente
+              Cliente y Servicio
             </div>
-            <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-              <p className="text-lg font-semibold text-foreground">
-                {appointment.customerName}
-              </p>
-              <div className="space-y-2">
-                {appointment.customerEmail && (
-                  <div className="flex items-center gap-2.5 text-sm text-foreground/70">
-                    <Mail className="h-4 w-4 text-foreground/50" />
-                    <a
-                      href={`mailto:${appointment.customerEmail}`}
-                      className="hover:text-foreground hover:underline transition-colors"
-                    >
-                      {appointment.customerEmail}
-                    </a>
-                  </div>
-                )}
-                {appointment.customerPhone && (
-                  <div className="flex items-center gap-2.5 text-sm text-foreground/70">
-                    <Phone className="h-4 w-4 text-foreground/50" />
-                    <a
-                      href={`tel:${appointment.customerPhone}`}
-                      className="hover:text-foreground hover:underline transition-colors"
-                    >
-                      {appointment.customerPhone}
-                    </a>
-                  </div>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Customer Info */}
+              <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
+                  <User className="h-3.5 w-3.5" />
+                  Cliente
+                </div>
+                <p className="text-lg font-semibold text-foreground">
+                  {appointment.customerName}
+                </p>
+                <div className="space-y-2">
+                  {appointment.customerEmail && (
+                    <div className="flex items-center gap-2.5 text-sm text-foreground/70">
+                      <Mail className="h-4 w-4 text-foreground/50" />
+                      <a
+                        href={`mailto:${appointment.customerEmail}`}
+                        className="hover:text-foreground hover:underline transition-colors"
+                      >
+                        {appointment.customerEmail}
+                      </a>
+                    </div>
+                  )}
+                  {appointment.customerPhone && (
+                    <div className="flex items-center gap-2.5 text-sm text-foreground/70">
+                      <Phone className="h-4 w-4 text-foreground/50" />
+                      <a
+                        href={`tel:${appointment.customerPhone}`}
+                        className="hover:text-foreground hover:underline transition-colors"
+                      >
+                        {appointment.customerPhone}
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          <hr className="border-border" />
-
-          {/* Service */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
-              <CheckCircle className="h-4 w-4" />
-              Servicio
-            </div>
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
-              <p className="text-base font-medium text-foreground">
-                {appointment.serviceName}
-              </p>
+              {/* Service */}
+              <div className="rounded-xl border bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60 mb-3">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Servicio
+                </div>
+                <p className="text-base font-medium text-foreground">
+                  {appointment.serviceName}
+                </p>
+              </div>
             </div>
           </div>
 

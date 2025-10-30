@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import FullCalendar from "@fullcalendar/react";
@@ -87,11 +87,19 @@ export default function CitasPage() {
 
   // Find selected appointment details
   const selectedAppointment = useMemo(() => {
-    if (!selectedAppointmentId || !allAppointments) return null;
+    if (!selectedAppointmentId || !allAppointments || !business) return null;
     const apt = allAppointments.find(
       (apt: any) => apt._id === selectedAppointmentId
     );
     if (!apt) return null;
+
+    // Find service duration from business config
+    const normalizedServiceName = apt.serviceName.trim().toLowerCase();
+    const service = business.appointmentConfig?.services?.find(
+      (s) => s.name.trim().toLowerCase() === normalizedServiceName
+    );
+    const duration = service?.duration || 60; // Default 60 minutes
+
     return {
       _id: apt._id,
       customerName: apt.customerData.name,
@@ -101,8 +109,9 @@ export default function CitasPage() {
       serviceName: apt.serviceName,
       status: apt.status,
       notes: apt.notes,
+      duration,
     } as Appointment;
-  }, [selectedAppointmentId, allAppointments]);
+  }, [selectedAppointmentId, allAppointments, business]);
 
   const handleAppointmentClick = (appointmentId: string) => {
     setSelectedAppointmentId(appointmentId);
@@ -120,24 +129,39 @@ export default function CitasPage() {
     );
   }
 
+  // Detect mobile screen size
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check screen size on mount and resize
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   return (
-    <div className="h-full flex flex-col gap-6">
+    <div className="h-full flex flex-col gap-4 md:gap-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
           Calendario de Citas
         </h1>
-        <p className="text-foreground/60 mt-2">
+        <p className="text-sm md:text-base text-foreground/60 mt-1 md:mt-2">
           Gestiona todas tus citas desde aquí
         </p>
       </div>
 
       {/* Main content: Calendar + Sidebar */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 h-full min-h-0">
-        {/* Calendar - 80% width */}
-        <div className="flex-[4] min-w-0 h-full min-h-[600px]">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 h-full min-h-0">
+        {/* Calendar */}
+        <div className="flex-1 min-w-0 h-full min-h-[400px] md:min-h-[500px] lg:min-h-[600px]">
           <Card className="bg-card border-border h-full">
-            <CardContent className="h-full p-6">
+            <CardContent className="h-full p-3 md:p-4 lg:p-6">
               <div className="h-full">
                 <FullCalendar
                   plugins={[dayGridPlugin]}
@@ -146,9 +170,9 @@ export default function CitasPage() {
                   eventClick={handleEventClick}
                   height="100%"
                   headerToolbar={{
-                    left: "prev,next today",
+                    left: isMobile ? "prev,next" : "prev,next today",
                     center: "title",
-                    right: "dayGridMonth",
+                    right: isMobile ? "" : "dayGridMonth",
                   }}
                   locale={esLocale}
                   firstDay={1} // Monday
@@ -157,7 +181,7 @@ export default function CitasPage() {
                     minute: "2-digit",
                     hour12: true,
                   }}
-                  dayMaxEvents={3}
+                  dayMaxEvents={isMobile ? 2 : 3}
                   moreLinkClick="popover"
                   eventDisplay="block"
                   eventBackgroundColor="inherit"
@@ -169,8 +193,8 @@ export default function CitasPage() {
           </Card>
         </div>
 
-        {/* Sidebar - 20% width */}
-        <div className="flex-1 w-full lg:w-auto min-w-[300px] max-w-full lg:max-w-[400px] h-full">
+        {/* Sidebar */}
+        <div className="w-full lg:flex-1 lg:w-auto lg:min-w-[280px] lg:max-w-[400px] h-auto lg:h-full">
           <AppointmentsSidebar
             businessId={business._id}
             onAppointmentClick={handleAppointmentClick}

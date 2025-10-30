@@ -133,7 +133,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh]">
+    <div className="flex flex-col min-h-[100svh]">
       {/* Header with business info */}
       <header className="border-b bg-card border-border">
         <div className="max-w-4xl mx-auto py-3">

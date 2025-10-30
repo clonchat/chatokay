@@ -236,7 +236,8 @@ export default function IntegracionesPage() {
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Para sincronizar citas con Google Calendar, primero debes
-                    conectar tu cuenta de Google.
+                    conectar tu cuenta de Google. Tu cuenta actual y todos tus datos
+                    se mantendrán intactos.
                   </p>
                 </div>
               </div>
@@ -246,11 +247,10 @@ export default function IntegracionesPage() {
                     📝 Pasos para conectar Google Calendar:
                   </p>
                   <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
-                    <li>Haz clic en el botón de abajo</li>
-                    <li>Ve a la sección "Connected accounts" en tu perfil</li>
-                    <li>Click en "Connect" al lado del icono de Google</li>
+                    <li>Haz clic en el botón de abajo para ir a tu perfil</li>
+                    <li>Haz clic en "Conectar Google"</li>
                     <li>Autoriza el acceso a Google Calendar</li>
-                    <li>Vuelve a esta página</li>
+                    <li>Vuelve a esta página para activar la sincronización</li>
                   </ol>
                 </div>
                 <Button
@@ -258,11 +258,12 @@ export default function IntegracionesPage() {
                   className="w-full sm:w-auto"
                   size="lg"
                 >
-                  📋 Ir a Mi Perfil
+                  📋 Ir a Mi Perfil para Conectar Google
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  💡 <strong>Importante:</strong> Iniciar sesión con Google ≠
-                  Conectar Google Calendar. Son flujos diferentes.
+                  💡 <strong>Importante:</strong> Si te registraste con correo electrónico,
+                  puedes conectar Google sin perder tus datos. Solo estarás vinculando
+                  tu cuenta de Google a tu cuenta existente.
                 </p>
               </div>
             </div>

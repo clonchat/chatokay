@@ -140,15 +140,12 @@ export default function DisponibilidadPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
           {/* Week Navigation */}
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="outline" onClick={goToPreviousWeek}>
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Semana Anterior
-            </Button>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <span>
+          <div className="mb-6">
+            {/* Date Range - Mobile: Top, Desktop: Hidden (shown in flex container) */}
+            <div className="text-sm sm:text-base font-medium text-center mb-4 sm:hidden">
+              <span className="whitespace-nowrap">
                 {format(getWeekStart(currentWeekStart), "d MMM", {
                   locale: es,
                 })}{" "}
@@ -163,10 +160,51 @@ export default function DisponibilidadPage() {
                 )}
               </span>
             </div>
-            <Button variant="outline" onClick={goToNextWeek}>
-              Semana Siguiente
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
+
+            {/* Navigation Container - Mobile: Buttons only, Desktop: All horizontal */}
+            <div className="flex items-center justify-between gap-3 sm:gap-4">
+              {/* Previous Week Button */}
+              <Button
+                variant="outline"
+                onClick={goToPreviousWeek}
+                className="flex-1 sm:flex-none"
+                size="sm"
+              >
+                <ChevronLeft className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Semana Anterior</span>
+                <span className="sm:hidden">Anterior</span>
+              </Button>
+
+              {/* Date Range - Desktop only */}
+              <div className="hidden sm:flex items-center text-base font-medium text-center flex-1 justify-center px-4">
+                <span className="whitespace-nowrap">
+                  {format(getWeekStart(currentWeekStart), "d MMM", {
+                    locale: es,
+                  })}{" "}
+                  -{" "}
+                  {format(
+                    new Date(
+                      getWeekStart(currentWeekStart).getTime() +
+                        6 * 24 * 60 * 60 * 1000
+                    ),
+                    "d MMM yyyy",
+                    { locale: es }
+                  )}
+                </span>
+              </div>
+
+              {/* Next Week Button */}
+              <Button
+                variant="outline"
+                onClick={goToNextWeek}
+                className="flex-1 sm:flex-none"
+                size="sm"
+              >
+                <span className="hidden sm:inline">Semana Siguiente</span>
+                <span className="sm:hidden">Siguiente</span>
+                <ChevronRight className="h-4 w-4 sm:ml-2" />
+              </Button>
+            </div>
           </div>
 
           {/* Week Schedule */}
@@ -186,8 +224,8 @@ export default function DisponibilidadPage() {
             <div className="space-y-4">
               {availability.map((day) => (
                 <Card key={day.date}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base sm:text-lg truncate">
                       {day.dayName} - {formatDate(day.date)}
                     </CardTitle>
                   </CardHeader>
