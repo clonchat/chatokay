@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSidebar } from "./context";
+import { Loading } from "@/components/loading";
 
 export default function ChatPage() {
   const params = useParams();
@@ -109,14 +110,7 @@ export default function ChatPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] bg-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-muted-foreground">Cargando chatbot...</p>
-        </div>
-      </div>
-    );
+    return <Loading variant="page" message="Cargando chatbot..." />;
   }
 
   if (error || !business) {

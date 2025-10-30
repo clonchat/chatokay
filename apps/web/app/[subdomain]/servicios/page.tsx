@@ -14,6 +14,7 @@ import { useQuery } from "convex/react";
 import { Menu } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useSidebar } from "../context";
+import { LoadingScreen } from "@/components/loading";
 
 interface Service {
   id: string;
@@ -41,14 +42,7 @@ export default function ServiciosPage() {
     businessFromQuery === null && !loading ? "Negocio no encontrado" : null;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-muted-foreground">Cargando servicios...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Cargando servicios..." />;
   }
 
   if (error || !business) {

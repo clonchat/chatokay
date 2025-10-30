@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { LoadingInline } from "@/components/loading";
 
 interface Service {
   id: string;
@@ -174,9 +175,7 @@ export function ChatSidebar({ services, businessId, phone }: ChatSidebarProps) {
 
             {/* Week Schedule */}
             {loading ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">
-                Cargando disponibilidad...
-              </div>
+              <LoadingInline message="Cargando disponibilidad..." size="sm" />
             ) : (
               <div className="space-y-4">
                 {availability.map((day) => (

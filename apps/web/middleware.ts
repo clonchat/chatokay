@@ -43,6 +43,12 @@ export default clerkMiddleware(async (auth, request) => {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
   const subdomain = getSubdomain(hostname);
+  const authState = await auth();
+
+  // If authenticated user hits root on main domain, redirect to dashboard
+  if (authState.userId && url.pathname === "/" && !subdomain) {
+    return NextResponse.redirect(new URL("/dashboard", url));
+  }
 
   // If we're on a subdomain, rewrite to the subdomain route structure
   if (subdomain) {
@@ -58,8 +64,8 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // Protect routes that require authentication (only on main domain)
-  if (!subdomain && !isPublicRoute(request)) {
-    await auth.protect();
+  if (!subdomain && !isPublicRoute(request) && !authState.userId) {
+    return NextResponse.redirect(new URL("/sign-in", url));
   }
 });
 

@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useSidebar } from "../context";
+import { LoadingScreen } from "@/components/loading";
 
 export default function DisponibilidadPage() {
   const params = useParams();
@@ -87,14 +88,7 @@ export default function DisponibilidadPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-muted-foreground">Cargando disponibilidad...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Cargando disponibilidad..." />;
   }
 
   if (error || !business) {

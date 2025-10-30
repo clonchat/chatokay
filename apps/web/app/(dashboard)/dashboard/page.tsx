@@ -17,16 +17,13 @@ import { StatusDistributionChart } from "@/components/dashboard/status-distribut
 import { ServiceBookingsChart } from "@/components/dashboard/service-bookings-chart";
 import { DayOfWeekChart } from "@/components/dashboard/day-of-week-chart";
 import { AppointmentsTrendChart } from "@/components/dashboard/appointments-trend-chart";
+import { LoadingScreen } from "@/components/loading";
 
 export default function DashboardPage() {
   const business = useAtomValue(businessAtom);
 
   if (!business) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-foreground/60">Cargando...</p>
-      </div>
-    );
+    return <LoadingScreen message="Cargando..." />;
   }
 
   return (

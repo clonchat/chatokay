@@ -109,9 +109,13 @@ export function LandingChatbot() {
       {isOpen && (
         <div
           ref={chatContainerRef}
-          className={`fixed bottom-6 right-6 z-50 bg-card border border-border rounded-lg shadow-2xl flex flex-col transition-all duration-300 ${
-            isMinimized ? "w-80 h-16" : "w-full max-w-md h-[600px] md:h-[700px]"
-          }`}
+          className={`fixed z-50 bg-card border border-border rounded-lg shadow-2xl flex flex-col transition-all duration-300 
+            bottom-4 right-4 md:bottom-6 md:right-6 ${
+              // Mobile: use viewport-based sizing to avoid cutoff
+              isMinimized
+                ? "w-80 h-16"
+                : "w-[calc(100vw-2rem)] max-w-md h-[calc(100dvh-3rem)] md:w-full md:h-[700px]"
+            }`}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b bg-muted/50 rounded-t-lg">

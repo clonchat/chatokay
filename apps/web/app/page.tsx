@@ -36,6 +36,7 @@ import {
 import Image from "next/image";
 import { JsonLd } from "@/components/json-ld";
 import { LandingChatbot } from "@/components/landing-chatbot";
+import { LoadingScreen } from "@/components/loading";
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://chatokay.com";
 
@@ -121,15 +122,10 @@ export default function Page() {
 
   // If user is authenticated or needs onboarding, show loading while redirecting
   if (authStatus === "authenticated" || authStatus === "onboarding") {
-    return (
-      <div className="flex items-center justify-center min-h-svh">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">ChatOkay</h1>
-          <p className="text-muted-foreground mt-2">Redirigiendo...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Redirigiendo..." />;
   }
+
+  // Otherwise (loading or unauthenticated), render the landing immediately
 
   // Show landing page immediately for unauthenticated users and while loading
   // This improves UX by not showing an unnecessary loading screen

@@ -47,6 +47,9 @@ importers:
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
       convex:
         specifier: ^1.25.4
         version: 1.28.0(@clerk/clerk-react@5.53.3(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)

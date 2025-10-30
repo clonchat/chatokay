@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { authStatusAtom } from "@/lib/store/auth-atoms";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
+import { LoadingScreen } from "@/components/loading";
 
 export default function DashboardLayout({
   children,
@@ -38,20 +39,12 @@ export default function DashboardLayout({
 
   // Show loading while checking auth status
   if (authStatus === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Cargando...</p>
-      </div>
-    );
+    return <LoadingScreen message="Cargando..." />;
   }
 
   // If not authenticated or needs onboarding, show loading (will redirect)
   if (authStatus !== "authenticated") {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Redirigiendo...</p>
-      </div>
-    );
+    return <LoadingScreen message="Redirigiendo..." />;
   }
 
   // User is authenticated and has business, show dashboard layout
