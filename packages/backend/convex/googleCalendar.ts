@@ -1,12 +1,6 @@
 import { v } from "convex/values";
-import {
-  action,
-  mutation,
-  internalMutation,
-  internalAction,
-} from "./_generated/server.js";
 import { internal } from "./_generated/api.js";
-import { Id } from "./_generated/dataModel";
+import { action, internalAction, mutation } from "./_generated/server.js";
 
 // Helper to get Google access token from Clerk
 async function getGoogleAccessToken(clerkUserId: string): Promise<string> {
@@ -123,6 +117,85 @@ export const testConnection = action({
   },
 });
 
+// Helper to format date string for Google Calendar API
+// When we receive "2025-11-04T10:00", we want to send it to Google Calendar
+// as "2025-11-04T10:00:00" in the specified timezone
+// This way Google Calendar will interpret "10:00" as 10:00 in that timezone
+function formatDateTimeForGoogleCalendar(dateTimeString: string): string {
+  // Ensure we have seconds in the format (Google Calendar expects HH:mm:ss)
+  if (dateTimeString.includes(":")) {
+    const parts = dateTimeString.split(":");
+    if (parts.length === 2) {
+      // Add seconds if missing
+      return `${dateTimeString}:00`;
+    }
+  }
+  return dateTimeString;
+}
+
+// Helper to calculate end time by adding duration in minutes
+// This preserves the timezone by working directly with the time components
+function calculateEndTime(
+  startDateTime: string,
+  durationMinutes: number
+): string {
+  const [datePart, timePart] = startDateTime.split("T");
+  if (!datePart || !timePart) {
+    throw new Error("Invalid start time format");
+  }
+
+  const dateParts = datePart.split("-").map(Number);
+  if (dateParts.length !== 3 || dateParts.some(isNaN)) {
+    throw new Error("Invalid date format, expected YYYY-MM-DD");
+  }
+  const year = dateParts[0]!;
+  const month = dateParts[1]!;
+  const day = dateParts[2]!;
+  const timeParts = timePart.split(":");
+  const hours = Number(timeParts[0]);
+  const minutes = Number(timeParts[1]) || 0;
+
+  // Calculate end time by adding duration in minutes
+  const startTotalMinutes = hours * 60 + minutes;
+  const endTotalMinutes = startTotalMinutes + durationMinutes;
+  const endHours = Math.floor(endTotalMinutes / 60) % 24;
+  const endMinutesRemainder = endTotalMinutes % 60;
+
+  // Handle day rollover if end time goes past midnight
+  let endDate = datePart;
+  if (endTotalMinutes >= 1440) {
+    // End time is on the next day
+    // Use Date constructor with explicit parameters to handle day rollover
+    const startDate = new Date(year, month - 1, day);
+    const nextDay = new Date(startDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextYear = nextDay.getFullYear();
+    const nextMonth = String(nextDay.getMonth() + 1).padStart(2, "0");
+    const nextDayNum = String(nextDay.getDate()).padStart(2, "0");
+    endDate = `${nextYear}-${nextMonth}-${nextDayNum}`;
+  }
+
+  return `${endDate}T${String(endHours).padStart(2, "0")}:${String(endMinutesRemainder).padStart(2, "0")}:00`;
+}
+
+// Helper to get calendar timezone from Google Calendar API
+async function getCalendarTimezone(
+  accessToken: string,
+  calendarId: string
+): Promise<string> {
+  try {
+    const calendar = await makeCalendarRequest(
+      accessToken,
+      `/calendars/${encodeURIComponent(calendarId)}`,
+      "GET"
+    );
+    return calendar.timeZone || "UTC";
+  } catch (error) {
+    console.error("Error getting calendar timezone, defaulting to UTC:", error);
+    return "UTC";
+  }
+}
+
 // Internal action to create a calendar event
 export const createCalendarEvent = internalAction({
   args: {
@@ -155,24 +228,31 @@ export const createCalendarEvent = internalAction({
     // Get access token
     const accessToken = await getGoogleAccessToken(user.clerkId);
 
-    // Calculate end time
-    const startDate = new Date(args.startTime);
-    const endDate = new Date(startDate.getTime() + args.duration * 60000);
-
     // Get calendar ID (default to primary)
     const calendarId = business.googleCalendarId || "primary";
 
+    // Get calendar timezone
+    const timeZone = await getCalendarTimezone(accessToken, calendarId);
+
+    // Format start time for Google Calendar (add seconds if missing)
+    const startDateTime = formatDateTimeForGoogleCalendar(args.startTime);
+
+    // Calculate end time by adding duration (preserves timezone interpretation)
+    const endDateTime = calculateEndTime(startDateTime, args.duration);
+
     // Create event body
+    // We send the datetime strings directly and specify the timezone
+    // Google Calendar will interpret these times in the specified timezone
     const eventBody = {
       summary: args.title,
       description: args.description || "",
       start: {
-        dateTime: startDate.toISOString(),
-        timeZone: "UTC",
+        dateTime: startDateTime,
+        timeZone: timeZone,
       },
       end: {
-        dateTime: endDate.toISOString(),
-        timeZone: "UTC",
+        dateTime: endDateTime,
+        timeZone: timeZone,
       },
       reminders: {
         useDefault: true,
@@ -223,22 +303,29 @@ export const updateCalendarEvent = internalAction({
     // Get access token
     const accessToken = await getGoogleAccessToken(user.clerkId);
 
-    // Calculate end time
-    const startDate = new Date(args.startTime);
-    const endDate = new Date(startDate.getTime() + args.duration * 60000);
-
     // Get calendar ID (default to primary)
     const calendarId = business.googleCalendarId || "primary";
 
+    // Get calendar timezone
+    const timeZone = await getCalendarTimezone(accessToken, calendarId);
+
+    // Format start time for Google Calendar (add seconds if missing)
+    const startDateTime = formatDateTimeForGoogleCalendar(args.startTime);
+
+    // Calculate end time by adding duration (preserves timezone interpretation)
+    const endDateTime = calculateEndTime(startDateTime, args.duration);
+
     // Build update body
+    // We send the datetime strings directly and specify the timezone
+    // Google Calendar will interpret these times in the specified timezone
     const updateBody: any = {
       start: {
-        dateTime: startDate.toISOString(),
-        timeZone: "UTC",
+        dateTime: startDateTime,
+        timeZone: timeZone,
       },
       end: {
-        dateTime: endDate.toISOString(),
-        timeZone: "UTC",
+        dateTime: endDateTime,
+        timeZone: timeZone,
       },
     };
 
@@ -388,4 +475,3 @@ export const disableGoogleCalendar = mutation({
     return { success: true };
   },
 });
-

@@ -51,8 +51,7 @@ type CreateAppointmentParams = z.infer<typeof createAppointmentSchema>;
 function buildSystemPrompt(
   business: { name?: string; description?: string },
   currentDate: string,
-  currentDay: string,
-  currentTime: string
+  currentDay: string
 ): string {
   const businessName = business.name ?? "el negocio";
 
@@ -84,9 +83,8 @@ function buildSystemPrompt(
   1.  **ACCIÓN INMEDIATA:** Llama a \`get_available_slots\` para la fecha solicitada.
   2.  **VERIFICAR EL RESULTADO:**
       - **Si la lista de horarios NO está vacía:**
-        a. **Filtra los horarios** si la fecha es hoy (${currentDate}), mostrando solo los posteriores a las ${currentTime}.
-        b. **Formatea la hora:** Muestra la hora en formato HH:MM (ej: 14:30), NUNCA en formato completo con fecha (2025-10-30T14:30).
-        c. **Presenta los horarios** usando la plantilla.
+        a. **Formatea la hora:** Muestra la hora en formato HH:MM (ej: 14:30), NUNCA en formato completo con fecha (2025-10-30T14:30).
+        b. **Presenta los horarios** usando la plantilla.
       - **Si la lista de horarios ESTÁ VACÍA:**
         a. **Usa el protocolo de cero resultados**: Informa al usuario que no hay disponibilidad para ese día, usando el ejemplo obligatorio de la sección "MANEJO DE RESULTADOS VACÍOS".
 
@@ -102,11 +100,11 @@ function buildSystemPrompt(
   REGLAS INVIOLABLES:
   - **REGLA DE ORO**: NUNCA confirmes una cita si \`create_appointment\` no ha devuelto \`success: true\`.
   - **REGLA DE CERO RESULTADOS**: NUNCA inventes horarios si la herramienta no los devuelve. Informa de que no hay disponibilidad.
+  - **REGLA NO DISCLOSE**: No retornes al usuario tu razonamiento interno, solo responde con la información que se te pide.
 
   CONTEXTO TEMPORAL:
   - Fecha de hoy: ${currentDate}
   - Día de la semana: ${currentDay}
-  - Hora actual: ${currentTime}
   `;
 }
 
@@ -147,19 +145,12 @@ export const sendMessage = action({
       new Date().toLocaleDateString("es-ES", {
         weekday: "long",
       }) ?? "Unknown";
-    const currentTime =
-      new Date().toLocaleTimeString("es-ES", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }) ?? "00:00";
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt(
       { name: business.name, description: business.description },
       currentDate,
-      currentDay,
-      currentTime
+      currentDay
     );
 
     // Define tools that will be used by the agent
@@ -279,7 +270,7 @@ export const sendMessage = action({
     // Create agent instance with tools
     const agent = new Agent(components.agent, {
       name: `Agent for ${business.name}`,
-      languageModel: openrouter("google/gemini-2.0-flash-001"),
+      languageModel: openrouter("openai/gpt-oss-20b"),
       instructions: systemPrompt,
       tools,
       maxSteps: 5,

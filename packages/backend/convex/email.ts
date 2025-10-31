@@ -199,9 +199,6 @@ const getEmailTemplate = (params: {
           : ""
       }
 
-      <p style="margin: 24px 0 0 0; color: #6B7280; font-size: 14px; line-height: 1.5;">
-        Si tienes alguna pregunta, puedes contactarnos a través de nuestro chatbot o responder a este correo.
-      </p>
     </div>
 
     <!-- Footer with Contact Info -->
