@@ -56,7 +56,7 @@ const structuredData = {
         "@type": "ContactPoint",
         email: "chatokay.dev@gmail.com",
         contactType: "customer service",
-        availableLanguage: ["Spanish"],
+        availableLanguage: ["Spanish", "es"],
       },
       sameAs: [],
     },
@@ -70,6 +70,7 @@ const structuredData = {
       publisher: {
         "@id": `${baseUrl}#organization`,
       },
+      inLanguage: "es",
       potentialAction: {
         "@type": "SearchAction",
         target: {
@@ -105,6 +106,44 @@ const structuredData = {
         ratingValue: "4.8",
         ratingCount: "150",
       },
+    },
+    {
+      "@type": "FAQPage",
+      "@id": `${baseUrl}#faq`,
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "¿Qué es ChatOkay?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "ChatOkay es un asistente de citas con IA que automatiza la gestión de reservas para negocios. Integra Google Calendar, Telegram y WhatsApp para facilitar la programación de citas 24/7.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "¿Cómo funciona ChatOkay?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "ChatOkay utiliza inteligencia artificial para interactuar con tus clientes, programar citas automáticamente, sincronizar con Google Calendar y enviar notificaciones a través de Telegram y WhatsApp. Todo desde un dashboard centralizado.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "¿Qué tipos de negocios pueden usar ChatOkay?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "ChatOkay es perfecto para salones de belleza, clínicas médicas, gimnasios, spas, consultorías, entrenadores personales y cualquier negocio que requiera gestión de citas con clientes.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "¿Necesito tarjeta de crédito para empezar?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No, puedes empezar a usar ChatOkay sin necesidad de tarjeta de crédito. Obtén tu subdominio personalizado y comienza a automatizar tus citas de inmediato.",
+          },
+        },
+      ],
     },
   ],
 };
