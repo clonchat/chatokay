@@ -11,10 +11,10 @@ http.route({
   handler: webhook,
 });
 
-// Mount Telegram webhook route with businessId parameter
-// Each bot gets its own unique webhook URL
+// Mount Telegram webhook route
+// businessId is passed as query parameter: /telegram-webhook?businessId=...
 http.route({
-  path: "/telegram-webhook/:businessId",
+  path: "/telegram-webhook",
   method: "POST",
   handler: handleTelegramWebhook,
 });

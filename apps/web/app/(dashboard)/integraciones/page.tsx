@@ -127,8 +127,8 @@ export default function IntegracionesPage() {
           );
           if (deploymentMatch) {
             const deploymentName = deploymentMatch[1];
-            // Include businessId in webhook URL for unique identification (Convex HTTP routes are under /http)
-            const webhookUrl = `https://${deploymentName}.convex.cloud/http/telegram-webhook/${business._id}`;
+            // Include businessId as query parameter for unique identification (Convex HTTP routes are under /http)
+            const webhookUrl = `https://${deploymentName}.convex.cloud/http/telegram-webhook?businessId=${business._id}`;
 
             const webhookResult = await setWebhookAction({
               token: telegramToken,
@@ -189,7 +189,7 @@ export default function IntegracionesPage() {
       if (deploymentMatch) {
         const deploymentName = deploymentMatch[1];
         // Show the exact URL we configure (with businessId)
-        return `https://${deploymentName}.convex.cloud/http/telegram-webhook/${business?._id ?? "<businessId>"}`;
+        return `https://${deploymentName}.convex.cloud/http/telegram-webhook?businessId=${business?._id ?? "<businessId>"}`;
       }
     }
     // Fallback: try to construct from current Convex client if available

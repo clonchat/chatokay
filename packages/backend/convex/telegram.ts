@@ -166,14 +166,16 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
 
   try {
     const url = new URL(request.url);
-    const pathParts = url.pathname.split("/");
-    const businessId = pathParts[pathParts.length - 1];
+    const businessId = url.searchParams.get("businessId");
 
-    console.log("[TG] Business ID from URL:", businessId);
+    console.log("[TG] Business ID from query:", businessId);
 
-    if (!businessId || businessId === "telegram-webhook") {
-      console.error("[TG] No businessId in URL path");
-      return new Response("Invalid webhook URL", { status: 400 });
+    if (!businessId) {
+      console.error("[TG] No businessId in query parameters");
+      return new Response(
+        "Invalid webhook URL - missing businessId parameter",
+        { status: 400 }
+      );
     }
 
     const bodyText = await request.text();
