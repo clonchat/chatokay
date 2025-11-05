@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { authStatusAtom } from "@/lib/store/auth-atoms";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
