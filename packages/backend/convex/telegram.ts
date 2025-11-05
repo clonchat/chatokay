@@ -157,92 +157,61 @@ export const getBusinessByTelegramToken = internalQuery({
 
 /**
  * HTTP Action handler for Telegram webhooks
- * Receives messages from Telegram and processes them through the chat AI
+ * Each business gets a unique webhook URL with their businessId
+ * URL format: /telegram-webhook/:businessId
  */
 export const handleTelegramWebhook = httpAction(async (ctx, request) => {
-  console.log("[Telegram Webhook] ===== WEBHOOK CALLED =====");
-  console.log("[Telegram Webhook] Request method:", request.method);
-  console.log("[Telegram Webhook] Request URL:", request.url);
+  console.log("[TG] ===== WEBHOOK CALLED =====");
+  console.log("[TG] URL:", request.url);
 
   try {
-    // Parse the request body
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const businessId = pathParts[pathParts.length - 1];
+
+    console.log("[TG] Business ID from URL:", businessId);
+
+    if (!businessId || businessId === "telegram-webhook") {
+      console.error("[TG] No businessId in URL path");
+      return new Response("Invalid webhook URL", { status: 400 });
+    }
+
     const bodyText = await request.text();
-    console.log("[Telegram Webhook] Raw body:", bodyText);
-
     const body = JSON.parse(bodyText);
-    console.log(
-      "[Telegram Webhook] Parsed body:",
-      JSON.stringify(body, null, 2)
-    );
-
-    // Extract message data
     const message = body.message;
+
     if (!message) {
-      console.log("[Telegram Webhook] No message in body, returning OK");
+      console.log("[TG] No message, returning OK");
       return new Response("OK", { status: 200 });
     }
 
     const messageText: string | undefined = message.text;
     const chatId = message.chat.id;
+
     console.log(
-      "[Telegram Webhook] Message text:",
-      messageText,
-      "Chat ID:",
-      chatId
+      "[TG] ChatId:",
+      chatId,
+      "Message:",
+      messageText?.substring(0, 50)
     );
 
-    // Identify which bot/business this message belongs to
-    // For MVP: Get all businesses with Telegram enabled and use the first one
-    // In production with multiple businesses, you'd need better matching (e.g., bot username)
-    console.log(
-      "[Telegram Webhook] Fetching businesses with Telegram enabled..."
-    );
-    const businesses = await ctx.runQuery(
-      internal.businesses.getAllTelegramBusinesses
-    );
-    console.log("[Telegram Webhook] Found businesses:", businesses.length);
+    const business = await ctx.runQuery(internal.businesses.getBusinessById, {
+      businessId: businessId as any,
+    });
 
-    let matchedBusiness = null;
-    let matchedToken = null;
-
-    // For MVP, assume single bot per deployment or use first enabled business
-    // TODO: In production, add bot username matching or webhook secret
-    const firstBusiness = businesses[0];
-    if (firstBusiness && firstBusiness.telegramBotToken) {
-      matchedBusiness = firstBusiness;
-      matchedToken = firstBusiness.telegramBotToken;
-      console.log(
-        "[Telegram Webhook] Matched business:",
-        matchedBusiness.subdomain,
-        "Token exists:",
-        !!matchedToken
-      );
-    } else {
-      console.error(
-        "[Telegram Webhook] Could not find valid business or token",
-        {
-          businessesCount: businesses.length,
-          firstBusinessExists: !!firstBusiness,
-          hasToken: firstBusiness?.telegramBotToken ? "yes" : "no",
-        }
-      );
-    }
-
-    // If we couldn't match a business, return OK but don't process
-    if (!matchedBusiness || !matchedToken) {
-      console.error(
-        "[Telegram Webhook] Could not match Telegram message to a business - returning OK"
-      );
+    if (!business || !business.telegramBotToken) {
+      console.error("[TG] Business not found or no token:", businessId);
       return new Response("OK", { status: 200 });
     }
 
-    // Quick welcome for /start without waiting for LLM
+    console.log("[TG] ✓ Business identified:", business.subdomain);
+
+    const matchedBusiness = business;
+    const matchedToken = business.telegramBotToken;
+
     if (messageText && messageText.trim() === "/start") {
-      console.log("[Telegram Webhook] Processing /start command");
-      // Clear conversation history for /start
-      await ctx.runMutation(internal.telegram.clearConversation, {
-        chatId,
-      });
+      console.log("[TG] Processing /start");
+      await ctx.runMutation(internal.telegram.clearConversation, { chatId });
       await ctx.scheduler.runAfter(
         0,
         internal.telegram.processTelegramMessage,
@@ -255,20 +224,16 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
           isDirectText: true,
         }
       );
-      console.log("[Telegram Webhook] Scheduled /start response");
+      console.log("[TG] Scheduled /start response");
       return new Response("OK", { status: 200 });
     }
 
     if (!messageText || messageText.trim().length === 0) {
-      console.log("[Telegram Webhook] No message text provided");
+      console.log("[TG] No message text");
       return new Response("OK", { status: 200 });
     }
 
-    // Schedule background processing to respect Telegram 10s timeout
-    console.log(
-      "[Telegram Webhook] Scheduling message processing for:",
-      messageText
-    );
+    console.log("[TG] Scheduling message processing");
     await ctx.scheduler.runAfter(0, internal.telegram.processTelegramMessage, {
       token: matchedToken,
       chatId,
@@ -277,17 +242,11 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
       businessId: matchedBusiness._id,
       isDirectText: false,
     });
-    console.log("[Telegram Webhook] Message scheduled successfully");
-
-    // Immediately acknowledge
+    console.log("[TG] Message scheduled");
     return new Response("OK", { status: 200 });
   } catch (error) {
-    console.error("[Telegram Webhook] Error handling webhook:", error);
-    console.error(
-      "[Telegram Webhook] Error stack:",
-      error instanceof Error ? error.stack : "No stack"
-    );
-    return new Response("OK", { status: 200 }); // Always return OK to Telegram
+    console.error("[TG] ERROR:", error);
+    return new Response("OK", { status: 200 });
   }
 });
 

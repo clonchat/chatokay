@@ -127,7 +127,8 @@ export default function IntegracionesPage() {
           );
           if (deploymentMatch) {
             const deploymentName = deploymentMatch[1];
-            const webhookUrl = `https://${deploymentName}.convex.cloud/http/telegram-webhook`;
+            // Include businessId in webhook URL for unique identification (Convex HTTP routes are under /http)
+            const webhookUrl = `https://${deploymentName}.convex.cloud/http/telegram-webhook/${business._id}`;
 
             const webhookResult = await setWebhookAction({
               token: telegramToken,
@@ -236,8 +237,8 @@ export default function IntegracionesPage() {
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Para sincronizar citas con Google Calendar, primero debes
-                    conectar tu cuenta de Google. Tu cuenta actual y todos tus datos
-                    se mantendrán intactos.
+                    conectar tu cuenta de Google. Tu cuenta actual y todos tus
+                    datos se mantendrán intactos.
                   </p>
                 </div>
               </div>
@@ -261,9 +262,9 @@ export default function IntegracionesPage() {
                   📋 Ir a Mi Perfil para Conectar Google
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  💡 <strong>Importante:</strong> Si te registraste con correo electrónico,
-                  puedes conectar Google sin perder tus datos. Solo estarás vinculando
-                  tu cuenta de Google a tu cuenta existente.
+                  💡 <strong>Importante:</strong> Si te registraste con correo
+                  electrónico, puedes conectar Google sin perder tus datos. Solo
+                  estarás vinculando tu cuenta de Google a tu cuenta existente.
                 </p>
               </div>
             </div>
