@@ -188,7 +188,8 @@ export default function IntegracionesPage() {
       );
       if (deploymentMatch) {
         const deploymentName = deploymentMatch[1];
-        return `https://${deploymentName}.convex.cloud/http/telegram-webhook`;
+        // Show the exact URL we configure (with businessId)
+        return `https://${deploymentName}.convex.cloud/http/telegram-webhook/${business?._id ?? "<businessId>"}`;
       }
     }
     // Fallback: try to construct from current Convex client if available
