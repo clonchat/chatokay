@@ -8,6 +8,15 @@ import {
 } from "./_generated/server.js";
 import { internal } from "./_generated/api.js";
 
+// Helper function to sanitize strings for comparison (removes accents, normalizes case and whitespace)
+function sanitizeString(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .normalize("NFD") // Normalize to decomposed form
+    .replace(/[\u0300-\u036f]/g, ""); // Remove combining diacritical marks (accents)
+}
+
 // Helper function to generate individual time slots
 function generateTimeSlots(
   start: string,
@@ -46,10 +55,10 @@ function hasTimeConflict(
   const slotStartTime = slotDateTime.getTime();
 
   return appointments.some((apt) => {
-    // Find service duration (case-insensitive and trimmed)
-    const normalizedServiceName = apt.serviceName.trim().toLowerCase();
+    // Find service duration (case-insensitive, trimmed, and accent-insensitive)
+    const normalizedServiceName = sanitizeString(apt.serviceName);
     const service = services.find(
-      (s) => s.name.trim().toLowerCase() === normalizedServiceName
+      (s) => sanitizeString(s.name) === normalizedServiceName
     );
     const duration = service?.duration || 60; // Default 60 minutes
 
@@ -374,10 +383,10 @@ export const getUpcomingAppointments = query({
       .sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime))
       .slice(0, args.limit || 10)
       .map((apt) => {
-        // Calculate end time based on service duration (case-insensitive and trimmed)
-        const normalizedServiceName = apt.serviceName.trim().toLowerCase();
+        // Calculate end time based on service duration (case-insensitive, trimmed, and accent-insensitive)
+        const normalizedServiceName = sanitizeString(apt.serviceName);
         const service = business.appointmentConfig.services.find(
-          (s) => s.name.trim().toLowerCase() === normalizedServiceName
+          (s) => sanitizeString(s.name) === normalizedServiceName
         );
         const duration = service?.duration || 60; // Default 60 minutes
         const startTime = new Date(apt.appointmentTime);
@@ -467,10 +476,10 @@ export const createAppointment = mutation({
       throw new Error("Time slot not available");
     }
 
-    // Find the service to get its duration (case-insensitive and trimmed)
-    const normalizedServiceName = args.serviceName.trim().toLowerCase();
+    // Find the service to get its duration (case-insensitive, trimmed, and accent-insensitive)
+    const normalizedServiceName = sanitizeString(args.serviceName);
     const service = business.appointmentConfig.services.find(
-      (s) => s.name.trim().toLowerCase() === normalizedServiceName
+      (s) => sanitizeString(s.name) === normalizedServiceName
     );
 
     if (!service) {
@@ -503,11 +512,9 @@ export const createAppointment = mutation({
 
     // Check for overlapping appointments
     const hasConflict = sameDayAppointments.some((apt) => {
-      const normalizedExistingServiceName = apt.serviceName
-        .trim()
-        .toLowerCase();
+      const normalizedExistingServiceName = sanitizeString(apt.serviceName);
       const existingService = business.appointmentConfig.services.find(
-        (s) => s.name.trim().toLowerCase() === normalizedExistingServiceName
+        (s) => sanitizeString(s.name) === normalizedExistingServiceName
       );
       const existingDuration = existingService?.duration || 60;
 
@@ -772,12 +779,10 @@ export const confirmAppointment = action({
     if (business?.googleCalendarEnabled) {
       console.log("✅ Google Calendar is enabled, attempting to sync...");
       try {
-        // Find the service to get duration (case-insensitive and trimmed)
-        const normalizedServiceName = appointment.serviceName
-          .trim()
-          .toLowerCase();
+        // Find the service to get duration (case-insensitive, trimmed, and accent-insensitive)
+        const normalizedServiceName = sanitizeString(appointment.serviceName);
         const service = business.appointmentConfig.services.find(
-          (s) => s.name.trim().toLowerCase() === normalizedServiceName
+          (s) => sanitizeString(s.name) === normalizedServiceName
         );
         const duration = service?.duration || 60;
 
@@ -889,10 +894,10 @@ export const rescheduleAppointmentMutation = internalMutation({
       throw new Error("Time slot not available");
     }
 
-    // Find the service to get its duration (case-insensitive and trimmed)
-    const normalizedServiceName = appointment.serviceName.trim().toLowerCase();
+    // Find the service to get its duration (case-insensitive, trimmed, and accent-insensitive)
+    const normalizedServiceName = sanitizeString(appointment.serviceName);
     const service = business.appointmentConfig.services.find(
-      (s) => s.name.trim().toLowerCase() === normalizedServiceName
+      (s) => sanitizeString(s.name) === normalizedServiceName
     );
 
     if (!service) {
@@ -931,11 +936,9 @@ export const rescheduleAppointmentMutation = internalMutation({
 
     // Check for overlapping appointments
     const hasConflict = sameDayAppointments.some((apt) => {
-      const normalizedExistingServiceName = apt.serviceName
-        .trim()
-        .toLowerCase();
+      const normalizedExistingServiceName = sanitizeString(apt.serviceName);
       const existingService = business.appointmentConfig.services.find(
-        (s) => s.name.trim().toLowerCase() === normalizedExistingServiceName
+        (s) => sanitizeString(s.name) === normalizedExistingServiceName
       );
       const existingDuration = existingService?.duration || 60;
 
@@ -1042,12 +1045,12 @@ export const rescheduleAppointment = action({
       business?.googleCalendarEnabled
     ) {
       try {
-        // Find the service to get duration (case-insensitive and trimmed)
-        const normalizedServiceName = updatedAppointment.serviceName
-          .trim()
-          .toLowerCase();
+        // Find the service to get duration (case-insensitive, trimmed, and accent-insensitive)
+        const normalizedServiceName = sanitizeString(
+          updatedAppointment.serviceName
+        );
         const service = business.appointmentConfig.services.find(
-          (s) => s.name.trim().toLowerCase() === normalizedServiceName
+          (s) => sanitizeString(s.name) === normalizedServiceName
         );
         const duration = service?.duration || 60;
 

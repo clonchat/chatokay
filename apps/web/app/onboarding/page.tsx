@@ -561,12 +561,21 @@ export default function OnboardingPage() {
                 <Input
                   id="subdomain"
                   value={subdomain}
-                  onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
+                  onChange={(e) => {
+                    // Solo permitir caracteres alfanuméricos y guiones
+                    const value = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "");
+                    setSubdomain(value);
+                  }}
                   placeholder="minegocio"
                   required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Tu chatbot estará en: {subdomain || "minegocio"}.chatokay.com
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Solo se permiten letras, números y guiones (-)
                 </p>
               </div>
               <div>

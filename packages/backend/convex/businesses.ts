@@ -145,6 +145,14 @@ export const create = mutation({
       throw new Error("User already has a business");
     }
 
+    // Validate subdomain format: only alphanumeric characters and hyphens
+    const subdomainPattern = /^[a-z0-9-]+$/;
+    if (!subdomainPattern.test(args.subdomain)) {
+      throw new Error(
+        "El subdominio solo puede contener letras, números y guiones (-)"
+      );
+    }
+
     // Check if subdomain is already taken
     const subdomainTaken = await ctx.db
       .query("businesses")
