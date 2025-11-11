@@ -39,6 +39,17 @@ export default function OnboardingPage() {
   // Query to get existing business
   const existingBusiness = useQuery(api.businesses.getCurrentUserBusiness);
 
+  // Query to get current user for email pre-fill
+  const currentUser = useQuery(api.users.getCurrentUser);
+
+  // Pre-fill email with user's registration email
+  useEffect(() => {
+    // Only pre-fill if we have user email and no existing business (new registration)
+    if (currentUser?.email && !existingBusiness) {
+      setEmail(currentUser.email);
+    }
+  }, [currentUser?.email, existingBusiness]);
+
   // Determine initial step based on existing business data
   useEffect(() => {
     if (existingBusiness !== undefined) {
@@ -50,6 +61,9 @@ export default function OnboardingPage() {
         setName(existingBusiness.name);
         setDescription(existingBusiness.description || "");
         setSubdomain(existingBusiness.subdomain);
+        // Use business email if available, otherwise leave empty (will be pre-filled by user email effect if needed)
+        setEmail(existingBusiness.email || "");
+        setPhone(existingBusiness.phone || "");
 
         // Pre-populate visual config if exists
         if (existingBusiness.visualConfig) {
