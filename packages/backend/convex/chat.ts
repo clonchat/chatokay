@@ -1,5 +1,6 @@
 import { Agent } from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
 import { v } from "convex/values";
 import { z } from "zod";
 import { api, components } from "./_generated/api.js";
@@ -8,6 +9,11 @@ import { action } from "./_generated/server.js";
 // Initialize OpenRouter provider
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+// Initialize rate limiter: 60 messages per hour per session
+const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: { kind: "fixed window", rate: 60, period: HOUR },
 });
 
 // Schema definitions for tools
@@ -210,6 +216,21 @@ export const sendMessage = action({
   },
   handler: async (ctx, args): Promise<{ content: string }> => {
     console.log("[Chat] Starting sendMessage handler");
+
+    // Check rate limit before processing
+    const rateLimitStatus = await rateLimiter.limit(ctx, "sendMessage", {
+      key: args.sessionId,
+    });
+
+    if (!rateLimitStatus.ok) {
+      const retryAfterSeconds = Math.ceil(
+        (rateLimitStatus.retryAfter - Date.now()) / 1000
+      );
+      const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+      throw new Error(
+        `Has alcanzado el límite de mensajes. Puedes enviar hasta 60 mensajes por hora. Intenta nuevamente en ${retryAfterMinutes} minuto${retryAfterMinutes !== 1 ? "s" : ""}.`
+      );
+    }
 
     // Fetch business configuration
     const business = await ctx.runQuery(api.businesses.getBySubdomain, {

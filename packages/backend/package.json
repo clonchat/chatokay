@@ -20,6 +20,7 @@
     "@convex-dev/agent": "^0.2.1",
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/rag": "^0.5.2",
+    "@convex-dev/rate-limiter": "^0.3.0",
     "@openrouter/ai-sdk-provider": "^1.2.0",
     "ai": "^5.0.17",
     "convex": "^1.25.4",
