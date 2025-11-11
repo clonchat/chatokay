@@ -46,6 +46,87 @@ type GetAvailableSlotsParams = z.infer<typeof getAvailableSlotsSchema>;
 type CreateAppointmentParams = z.infer<typeof createAppointmentSchema>;
 
 /**
+ * Cleans reasoning tags from agent response text
+ */
+function cleanResponseText(text: string): string {
+  let cleanText = text;
+  // Remove reasoning tags and their content
+  cleanText = cleanText.replace(/<think>[\s\S]*?<\/redacted_reasoning>/gi, "");
+  cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  cleanText = cleanText.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
+  cleanText = cleanText.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+  cleanText = cleanText.replace(
+    /<reasoning_text>[\s\S]*?<\/reasoning_text>/gi,
+    ""
+  );
+  // Clean up extra whitespace
+  return cleanText.trim();
+}
+
+/**
+ * Generates text with retry logic when response is empty
+ */
+async function generateTextWithRetry(
+  agent: Agent<any, any>,
+  ctx: any,
+  sessionUserId: string,
+  agentMessages: Array<{ role: "user" | "assistant"; content: string }>,
+  maxRetries: number = 3
+): Promise<string> {
+  let lastResult: { text: string; finishReason: string } | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(
+      `[Chat] Generating text, attempt ${attempt}/${maxRetries}${
+        attempt > 1 ? " (retry)" : ""
+      }`
+    );
+
+    const result = await agent.generateText(
+      ctx,
+      { userId: sessionUserId },
+      {
+        messages: agentMessages,
+      }
+    );
+
+    lastResult = {
+      text: result.text || "",
+      finishReason: result.finishReason || "unknown",
+    };
+
+    console.log(`[Chat] Agent response received (attempt ${attempt}):`, {
+      text: lastResult.text,
+      finishReason: lastResult.finishReason,
+    });
+
+    // Clean the response text
+    const cleanText = cleanResponseText(lastResult.text);
+
+    // If we have non-empty text after cleaning, return it
+    if (cleanText.length > 0) {
+      return cleanText;
+    }
+
+    // If this was the last attempt, break
+    if (attempt === maxRetries) {
+      break;
+    }
+
+    // Wait a bit before retrying (exponential backoff)
+    const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 3000);
+    console.log(`[Chat] Empty response received, retrying in ${delayMs}ms...`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  // If all retries failed, return default message
+  console.warn(
+    `[Chat] All ${maxRetries} attempts returned empty text. Using fallback message.`
+  );
+  return "Lo siento, no pude procesar tu solicitud correctamente. Por favor, intenta nuevamente.";
+}
+
+/**
  * Builds a comprehensive system prompt with business context
  */
 function buildSystemPrompt(
@@ -293,43 +374,18 @@ export const sendMessage = action({
     // within the same browser session. Each page refresh gets a new sessionId.
     const sessionUserId = args.sessionId;
 
-    // Send message to agent and get response
+    // Send message to agent and get response with retry logic
     // Pass all messages for full conversation context
     console.log("[Chat] Calling agent with session:", sessionUserId);
     console.log("[Chat] Total messages in context:", agentMessages.length);
 
-    const result = await agent.generateText(
+    const cleanText = await generateTextWithRetry(
+      agent,
       ctx,
-      { userId: sessionUserId },
-      {
-        messages: agentMessages,
-      }
+      sessionUserId,
+      agentMessages,
+      3
     );
-
-    console.log("[Chat] Agent response received:", {
-      text: result.text,
-      finishReason: result.finishReason,
-    });
-
-    // Remove any reasoning tags from the response
-    let cleanText =
-      result.text || "Lo siento, no pude procesar tu solicitud correctamente.";
-
-    // Remove <think>, <think>, <reasoning> tags and their content
-    cleanText = cleanText.replace(
-      /<think>[\s\S]*?<\/redacted_reasoning>/gi,
-      ""
-    );
-    cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "");
-    cleanText = cleanText.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
-    cleanText = cleanText.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
-    cleanText = cleanText.replace(
-      /<reasoning_text>[\s\S]*?<\/reasoning_text>/gi,
-      ""
-    );
-
-    // Clean up extra whitespace
-    cleanText = cleanText.trim();
 
     return {
       content: cleanText,
@@ -405,37 +461,13 @@ export const sendLandingMessage = action({
 
     console.log("[Landing Chat] Calling agent with session:", sessionUserId);
 
-    const result = await agent.generateText(
+    const cleanText = await generateTextWithRetry(
+      agent,
       ctx,
-      { userId: sessionUserId },
-      {
-        messages: agentMessages,
-      }
+      sessionUserId,
+      agentMessages,
+      3
     );
-
-    console.log("[Landing Chat] Agent response received:", {
-      text: result.text,
-      finishReason: result.finishReason,
-    });
-
-    // Remove any reasoning tags from the response
-    let cleanText =
-      result.text || "Lo siento, no pude procesar tu solicitud correctamente.";
-
-    cleanText = cleanText.replace(
-      /<think>[\s\S]*?<\/redacted_reasoning>/gi,
-      ""
-    );
-    cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "");
-    cleanText = cleanText.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
-    cleanText = cleanText.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
-    cleanText = cleanText.replace(
-      /<reasoning_text>[\s\S]*?<\/reasoning_text>/gi,
-      ""
-    );
-
-    // Clean up extra whitespace
-    cleanText = cleanText.trim();
 
     return {
       content: cleanText,

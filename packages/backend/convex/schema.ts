@@ -27,6 +27,7 @@ export default defineSchema({
           name: v.string(),
           duration: v.number(),
           price: v.optional(v.number()),
+          maxPeople: v.optional(v.number()),
         })
       ),
     }),

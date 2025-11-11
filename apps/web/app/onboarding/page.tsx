@@ -107,6 +107,7 @@ export default function OnboardingPage() {
       name: string;
       duration: number;
       price?: number;
+      maxPeople?: number;
     }>
   >([]);
 
@@ -293,6 +294,7 @@ export default function OnboardingPage() {
         name: "",
         duration: 30,
         price: 0,
+        maxPeople: 1,
       },
     ]);
   };
@@ -707,6 +709,9 @@ export default function OnboardingPage() {
                         Duración (min)
                       </th>
                       <th className="text-left p-2 font-medium w-32">Precio</th>
+                      <th className="text-left p-2 font-medium w-32">
+                        Número de personas
+                      </th>
                       <th className="text-left p-2 font-medium w-20">
                         Acciones
                       </th>
@@ -716,7 +721,7 @@ export default function OnboardingPage() {
                     {services.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="text-center p-4 text-muted-foreground"
                         >
                           No hay servicios. Haz clic en "+ Añadir Servicio" para
@@ -772,6 +777,21 @@ export default function OnboardingPage() {
                                   e.target.value
                                     ? parseFloat(e.target.value)
                                     : undefined
+                                )
+                              }
+                              className="h-9"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={service.maxPeople ?? 1}
+                              onChange={(e) =>
+                                updateService(
+                                  service.id,
+                                  "maxPeople",
+                                  Math.max(1, parseInt(e.target.value) || 1)
                                 )
                               }
                               className="h-9"

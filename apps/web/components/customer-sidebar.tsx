@@ -24,7 +24,7 @@ export function CustomerSidebar({
 
   const navigation = [
     {
-      name: "Chat",
+      name: "Asistente reservas",
       href: `/`,
       icon: MessageSquare,
     },

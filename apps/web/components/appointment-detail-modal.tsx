@@ -14,6 +14,7 @@ import { useAction, useQuery } from "convex/react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
+  AlertTriangle,
   Calendar,
   CalendarClock,
   CheckCircle,
@@ -60,6 +61,8 @@ export function AppointmentDetailModal({
   const [isRescheduleMode, setIsRescheduleMode] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [showCapacityWarning, setShowCapacityWarning] = useState(false);
+  const [capacityMessage, setCapacityMessage] = useState("");
 
   const confirmAppointment = useAction(api.appointments.confirmAppointment);
   const cancelAppointment = useAction(api.appointments.cancelAppointment);
@@ -80,6 +83,8 @@ export function AppointmentDetailModal({
       setIsRescheduleMode(false);
       setSelectedDate("");
       setSelectedTime("");
+      setShowCapacityWarning(false);
+      setCapacityMessage("");
     }
   }, [isOpen, appointment]);
 
@@ -100,7 +105,7 @@ export function AppointmentDetailModal({
     return format(end, "HH:mm", { locale: es });
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (forceConfirm = false) => {
     if (appointment.status === "confirmed") return;
 
     setIsLoading(true);
@@ -108,15 +113,75 @@ export function AppointmentDetailModal({
       await confirmAppointment({
         appointmentId: appointment._id,
         ownerNote: ownerNote.trim() || undefined,
+        forceConfirm,
       });
       toast.success("Cita confirmada y cliente notificado por correo");
+      setShowCapacityWarning(false);
+      setCapacityMessage("");
       onClose();
     } catch (error) {
-      toast.error("Error al confirmar la cita");
-      console.error(error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al confirmar la cita";
+
+      // Check if it's a capacity exceeded error
+      if (errorMessage.includes("CAPACITY_EXCEEDED")) {
+        // Extract the clean message after CAPACITY_EXCEEDED:
+        // Remove "CAPACITY_EXCEEDED: " and any Convex technical details
+        let message = errorMessage.replace("CAPACITY_EXCEEDED: ", "");
+        // Remove Convex technical details (Request ID, file paths, etc.)
+        const handlerIndex = message.indexOf("at handler");
+        if (handlerIndex !== -1) message = message.substring(0, handlerIndex);
+
+        const convexIndex = message.indexOf("[CONVEX");
+        if (convexIndex !== -1) message = message.substring(0, convexIndex);
+
+        const serverErrorIndex = message.indexOf("Server Error");
+        if (serverErrorIndex !== -1)
+          message = message.substring(0, serverErrorIndex);
+
+        const uncaughtIndex = message.indexOf("Uncaught Error:");
+        if (uncaughtIndex !== -1) message = message.substring(0, uncaughtIndex);
+
+        // Clean up any remaining technical artifacts
+        message = message.replace(/\[.*?\]/g, "").trim();
+
+        setCapacityMessage(
+          message ||
+            "Este servicio ya ha alcanzado su capacidad máxima en este horario."
+        );
+        setShowCapacityWarning(true);
+      } else {
+        // Extract clean error message (remove Convex technical details)
+        let cleanMessage = errorMessage;
+
+        const handlerIndex = cleanMessage.indexOf("at handler");
+        if (handlerIndex !== -1)
+          cleanMessage = cleanMessage.substring(0, handlerIndex);
+
+        const convexIndex = cleanMessage.indexOf("[CONVEX");
+        if (convexIndex !== -1)
+          cleanMessage = cleanMessage.substring(0, convexIndex);
+
+        const serverErrorIndex = cleanMessage.indexOf("Server Error");
+        if (serverErrorIndex !== -1)
+          cleanMessage = cleanMessage.substring(0, serverErrorIndex);
+
+        const uncaughtIndex = cleanMessage.indexOf("Uncaught Error:");
+        if (uncaughtIndex !== -1)
+          cleanMessage = cleanMessage.substring(0, uncaughtIndex);
+
+        cleanMessage = cleanMessage.replace(/\[.*?\]/g, "").trim();
+
+        toast.error(cleanMessage || "Error al confirmar la cita");
+        console.error(error);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmWithCapacity = async () => {
+    await handleConfirm(true);
   };
 
   const handleCancel = async () => {
@@ -193,287 +258,360 @@ export function AppointmentDetailModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <DialogClose onClick={onClose} />
-        <div className="flex flex-col gap-1 pb-4">
-          <div className="flex gap-2">
-            <h1 className="text-2xl font-bold">Detalles de la Cita</h1>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${getStatusColor()}`}
-            >
-              {getStatusText()}
-            </span>
-          </div>
-          <DialogDescription>
-            Información completa de la cita programada
-          </DialogDescription>
-        </div>
-
-        <div className="space-y-6">
-          {/* Date and Time */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
-              <Calendar className="h-4 w-4" />
-              Fecha y Hora
-            </div>
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
-              <p className="text-sm text-foreground/70">{date}</p>
-              <div className="mt-1 flex items-center gap-2">
-                <p className="text-2xl font-bold text-foreground">{time}</p>
-                {endTime && (
-                  <>
-                    <span className="text-foreground/60 text-xl">-</span>
-                    <p className="text-2xl font-bold text-foreground">
-                      {endTime}
+    <>
+      {/* Capacity Warning Modal */}
+      {showCapacityWarning && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => {
+              setShowCapacityWarning(false);
+              setCapacityMessage("");
+            }}
+          />
+          <div className="relative z-[60] w-full max-w-md mx-4">
+            <div className="bg-card border border-border rounded-lg shadow-lg p-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+                onClick={() => {
+                  setShowCapacityWarning(false);
+                  setCapacityMessage("");
+                }}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-amber-500/20 p-2 mt-0.5 flex-shrink-0">
+                    <AlertTriangle className="h-6 w-6 text-amber-700 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 pr-8">
+                    <h2 className="text-xl font-semibold text-foreground mb-2">
+                      Capacidad Máxima Alcanzada
+                    </h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {capacityMessage}
                     </p>
-                  </>
+                    <p className="text-sm font-medium text-foreground">
+                      ¿Deseas confirmar esta cita de todas formas?
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    onClick={() => {
+                      setShowCapacityWarning(false);
+                      setCapacityMessage("");
+                    }}
+                    variant="outline"
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleConfirmWithCapacity}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Confirmando..." : "Confirmar de todas formas"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Appointment Detail Modal */}
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogClose onClick={onClose} />
+          <div className="flex flex-col gap-1 pb-4">
+            <div className="flex gap-2">
+              <h1 className="text-2xl font-bold">Detalles de la Cita</h1>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${getStatusColor()}`}
+              >
+                {getStatusText()}
+              </span>
+            </div>
+            <DialogDescription>
+              Información completa de la cita programada
+            </DialogDescription>
+          </div>
+
+          <div className="space-y-6">
+            {/* Date and Time */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                <Calendar className="h-4 w-4" />
+                Fecha y Hora
+              </div>
+              <div className="rounded-xl border bg-card p-5 shadow-sm">
+                <p className="text-sm text-foreground/70">{date}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-2xl font-bold text-foreground">{time}</p>
+                  {endTime && (
+                    <>
+                      <span className="text-foreground/60 text-xl">-</span>
+                      <p className="text-2xl font-bold text-foreground">
+                        {endTime}
+                      </p>
+                    </>
+                  )}
+                </div>
+                {appointment.duration && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-foreground/60">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Duración: {appointment.duration} minutos</span>
+                  </div>
                 )}
               </div>
-              {appointment.duration && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-foreground/60">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Duración: {appointment.duration} minutos</span>
-                </div>
-              )}
             </div>
-          </div>
 
-          <hr className="border-border" />
+            <hr className="border-border" />
 
-          {/* Customer and Service */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
-              <User className="h-4 w-4" />
-              Cliente y Servicio
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Customer Info */}
-              <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
-                  <User className="h-3.5 w-3.5" />
-                  Cliente
-                </div>
-                <p className="text-lg font-semibold text-foreground">
-                  {appointment.customerName}
-                </p>
-                <div className="space-y-2">
-                  {appointment.customerEmail && (
-                    <div className="flex items-center gap-2.5 text-sm text-foreground/70">
-                      <Mail className="h-4 w-4 text-foreground/50" />
-                      <a
-                        href={`mailto:${appointment.customerEmail}`}
-                        className="hover:text-foreground hover:underline transition-colors"
-                      >
-                        {appointment.customerEmail}
-                      </a>
-                    </div>
-                  )}
-                  {appointment.customerPhone && (
-                    <div className="flex items-center gap-2.5 text-sm text-foreground/70">
-                      <Phone className="h-4 w-4 text-foreground/50" />
-                      <a
-                        href={`tel:${appointment.customerPhone}`}
-                        className="hover:text-foreground hover:underline transition-colors"
-                      >
-                        {appointment.customerPhone}
-                      </a>
-                    </div>
-                  )}
-                </div>
+            {/* Customer and Service */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                <User className="h-4 w-4" />
+                Cliente y Servicio
               </div>
-
-              {/* Service */}
-              <div className="rounded-xl border bg-card p-5 shadow-sm">
-                <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60 mb-3">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Servicio
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Customer Info */}
+                <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
+                    <User className="h-3.5 w-3.5" />
+                    Cliente
+                  </div>
+                  <p className="text-lg font-semibold text-foreground">
+                    {appointment.customerName}
+                  </p>
+                  <div className="space-y-2">
+                    {appointment.customerEmail && (
+                      <div className="flex items-center gap-2.5 text-sm text-foreground/70">
+                        <Mail className="h-4 w-4 text-foreground/50" />
+                        <a
+                          href={`mailto:${appointment.customerEmail}`}
+                          className="hover:text-foreground hover:underline transition-colors"
+                        >
+                          {appointment.customerEmail}
+                        </a>
+                      </div>
+                    )}
+                    {appointment.customerPhone && (
+                      <div className="flex items-center gap-2.5 text-sm text-foreground/70">
+                        <Phone className="h-4 w-4 text-foreground/50" />
+                        <a
+                          href={`tel:${appointment.customerPhone}`}
+                          className="hover:text-foreground hover:underline transition-colors"
+                        >
+                          {appointment.customerPhone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-base font-medium text-foreground">
-                  {appointment.serviceName}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* Notes */}
-          {appointment.notes && (
-            <>
-              <hr className="border-border" />
-              <div className="space-y-3">
-                <span className="text-sm font-semibold text-foreground/70">
-                  Notas
-                </span>
+                {/* Service */}
                 <div className="rounded-xl border bg-card p-5 shadow-sm">
-                  <p className="text-sm leading-relaxed text-foreground/80">
-                    {appointment.notes}
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground/60 mb-3">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Servicio
+                  </div>
+                  <p className="text-base font-medium text-foreground">
+                    {appointment.serviceName}
                   </p>
                 </div>
               </div>
-            </>
-          )}
+            </div>
 
-          <hr className="border-border" />
-
-          {/* Owner Note */}
-          <div className="space-y-3">
-            <Label
-              htmlFor="ownerNote"
-              className="text-sm font-semibold text-foreground/70"
-            >
-              Nota para el cliente (opcional)
-            </Label>
-            <Textarea
-              id="ownerNote"
-              placeholder="Añade una nota que se enviará al cliente por correo..."
-              value={ownerNote}
-              onChange={(e) => setOwnerNote(e.target.value)}
-              rows={3}
-              disabled={isLoading}
-              className="resize-none"
-            />
-          </div>
-
-          {/* Reschedule Section */}
-          {isRescheduleMode && appointment.status !== "cancelled" && (
-            <>
-              <hr className="border-border" />
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
-                  <CalendarClock className="h-4 w-4" />
-                  Reprogramar Cita
-                </div>
-
+            {/* Notes */}
+            {appointment.notes && (
+              <>
+                <hr className="border-border" />
                 <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="newDate" className="text-sm">
-                      Nueva Fecha
-                    </Label>
-                    <input
-                      id="newDate"
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
-                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      disabled={isLoading}
-                    />
+                  <span className="text-sm font-semibold text-foreground/70">
+                    Notas
+                  </span>
+                  <div className="rounded-xl border bg-card p-5 shadow-sm">
+                    <p className="text-sm leading-relaxed text-foreground/80">
+                      {appointment.notes}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <hr className="border-border" />
+
+            {/* Owner Note */}
+            <div className="space-y-3">
+              <Label
+                htmlFor="ownerNote"
+                className="text-sm font-semibold text-foreground/70"
+              >
+                Nota para el cliente (opcional)
+              </Label>
+              <Textarea
+                id="ownerNote"
+                placeholder="Añade una nota que se enviará al cliente por correo..."
+                value={ownerNote}
+                onChange={(e) => setOwnerNote(e.target.value)}
+                rows={3}
+                disabled={isLoading}
+                className="resize-none"
+              />
+            </div>
+
+            {/* Reschedule Section */}
+            {isRescheduleMode && appointment.status !== "cancelled" && (
+              <>
+                <hr className="border-border" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <CalendarClock className="h-4 w-4" />
+                    Reprogramar Cita
                   </div>
 
-                  {selectedDate &&
-                    availableSlots &&
-                    availableSlots.length > 0 && (
-                      <div>
-                        <Label className="text-sm">Horarios Disponibles</Label>
-                        <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                          {availableSlots
-                            .filter(
-                              (slot: { isBooked: boolean }) => !slot.isBooked
-                            )
-                            .map((slot: { start: string; end: string }) => (
-                              <Button
-                                key={slot.start}
-                                type="button"
-                                variant={
-                                  selectedTime === slot.start
-                                    ? "default"
-                                    : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setSelectedTime(slot.start)}
-                                disabled={isLoading}
-                                className="text-xs"
-                              >
-                                {slot.start}
-                              </Button>
-                            ))}
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="newDate" className="text-sm">
+                        Nueva Fecha
+                      </Label>
+                      <input
+                        id="newDate"
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                        className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    {selectedDate &&
+                      availableSlots &&
+                      availableSlots.length > 0 && (
+                        <div>
+                          <Label className="text-sm">
+                            Horarios Disponibles
+                          </Label>
+                          <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                            {availableSlots
+                              .filter(
+                                (slot: { isBooked: boolean }) => !slot.isBooked
+                              )
+                              .map((slot: { start: string; end: string }) => (
+                                <Button
+                                  key={slot.start}
+                                  type="button"
+                                  variant={
+                                    selectedTime === slot.start
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() => setSelectedTime(slot.start)}
+                                  disabled={isLoading}
+                                  className="text-xs"
+                                >
+                                  {slot.start}
+                                </Button>
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                  {selectedDate &&
-                    availableSlots &&
-                    availableSlots.filter(
-                      (slot: { isBooked: boolean }) => !slot.isBooked
-                    ).length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No hay horarios disponibles para esta fecha
-                      </p>
-                    )}
+                    {selectedDate &&
+                      availableSlots &&
+                      availableSlots.filter(
+                        (slot: { isBooked: boolean }) => !slot.isBooked
+                      ).length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No hay horarios disponibles para esta fecha
+                        </p>
+                      )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-
-          <hr className="border-border" />
-
-          {/* Actions */}
-          <div className="space-y-3">
-            {isRescheduleMode ? (
-              <>
-                <Button
-                  onClick={handleReschedule}
-                  disabled={isLoading || !selectedDate || !selectedTime}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
-                  size="lg"
-                >
-                  <CalendarClock className="mr-2 h-5 w-5" />
-                  {isLoading ? "Reprogramando..." : "Confirmar Reprogramación"}
-                </Button>
-                <Button
-                  onClick={() => setIsRescheduleMode(false)}
-                  disabled={isLoading}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  Cancelar Reprogramación
-                </Button>
               </>
-            ) : (
-              <>
-                <div className="flex gap-3">
-                  {appointment.status !== "confirmed" && (
-                    <Button
-                      onClick={handleConfirm}
-                      disabled={isLoading}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-11"
-                      size="lg"
-                    >
-                      <CheckCircle className="mr-2 h-5 w-5" />
-                      {isLoading ? "Confirmando..." : "Confirmar"}
-                    </Button>
-                  )}
-                  {appointment.status !== "cancelled" && (
-                    <Button
-                      onClick={handleCancel}
-                      disabled={isLoading}
-                      variant="outline"
-                      className="flex-1 border-2 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium h-11"
-                      size="lg"
-                    >
-                      <X className="mr-2 h-5 w-5" />
-                      {isLoading ? "Cancelando..." : "Cancelar"}
-                    </Button>
-                  )}
-                </div>
-                {appointment.status !== "cancelled" && (
+            )}
+
+            <hr className="border-border" />
+
+            {/* Actions */}
+            <div className="space-y-3">
+              {isRescheduleMode ? (
+                <>
                   <Button
-                    onClick={() => setIsRescheduleMode(true)}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="w-full border-2 font-medium h-11"
+                    onClick={() => handleReschedule()}
+                    disabled={isLoading || !selectedDate || !selectedTime}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
                     size="lg"
                   >
                     <CalendarClock className="mr-2 h-5 w-5" />
-                    Reprogramar Cita
+                    {isLoading
+                      ? "Reprogramando..."
+                      : "Confirmar Reprogramación"}
                   </Button>
-                )}
-              </>
-            )}
+                  <Button
+                    onClick={() => setIsRescheduleMode(false)}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    Cancelar Reprogramación
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-3">
+                    {appointment.status !== "confirmed" && (
+                      <Button
+                        onClick={() => handleConfirm(false)}
+                        disabled={isLoading}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-11"
+                        size="lg"
+                      >
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                        {isLoading ? "Confirmando..." : "Confirmar"}
+                      </Button>
+                    )}
+                    {appointment.status !== "cancelled" && (
+                      <Button
+                        onClick={() => handleCancel()}
+                        disabled={isLoading}
+                        variant="outline"
+                        className="flex-1 border-2 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium h-11"
+                        size="lg"
+                      >
+                        <X className="mr-2 h-5 w-5" />
+                        {isLoading ? "Cancelando..." : "Cancelar"}
+                      </Button>
+                    )}
+                  </div>
+                  {appointment.status !== "cancelled" && (
+                    <Button
+                      onClick={() => setIsRescheduleMode(true)}
+                      disabled={isLoading}
+                      variant="outline"
+                      className="w-full border-2 font-medium h-11"
+                      size="lg"
+                    >
+                      <CalendarClock className="mr-2 h-5 w-5" />
+                      Reprogramar Cita
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

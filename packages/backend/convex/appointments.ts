@@ -49,26 +49,55 @@ function hasTimeConflict(
     serviceName: string;
     status: string;
   }>,
-  services: Array<{ name: string; duration: number }>
+  services: Array<{ name: string; duration: number; maxPeople?: number }>
 ): boolean {
   const slotDateTime = new Date(`${date}T${slotStart}`);
   const slotStartTime = slotDateTime.getTime();
 
-  return appointments.some((apt) => {
-    // Find service duration (case-insensitive, trimmed, and accent-insensitive)
+  // Group appointments by service to check capacity
+  const serviceAppointments = new Map<
+    string,
+    Array<(typeof appointments)[0]>
+  >();
+
+  for (const apt of appointments) {
     const normalizedServiceName = sanitizeString(apt.serviceName);
+    if (!serviceAppointments.has(normalizedServiceName)) {
+      serviceAppointments.set(normalizedServiceName, []);
+    }
+    serviceAppointments.get(normalizedServiceName)!.push(apt);
+  }
+
+  // Check each service group for conflicts
+  for (const [
+    normalizedServiceName,
+    serviceApts,
+  ] of serviceAppointments.entries()) {
     const service = services.find(
       (s) => sanitizeString(s.name) === normalizedServiceName
     );
     const duration = service?.duration || 60; // Default 60 minutes
+    const maxPeople = service?.maxPeople ?? 1; // Default to 1
 
-    const aptStartTime = new Date(apt.appointmentTime).getTime();
-    const aptEndTime = aptStartTime + duration * 60 * 1000; // Convert minutes to milliseconds
+    // Count overlapping appointments for this service
+    const overlappingCount = serviceApts.filter((apt) => {
+      const aptStartTime = new Date(apt.appointmentTime).getTime();
+      const aptEndTime = aptStartTime + duration * 60 * 1000;
 
-    // Check if slot starts within an existing appointment
-    // A slot conflicts if it starts between the appointment start and end time
-    return slotStartTime >= aptStartTime && slotStartTime < aptEndTime;
-  });
+      // Check if slot starts within an existing appointment
+      return slotStartTime >= aptStartTime && slotStartTime < aptEndTime;
+    }).length;
+
+    // For services with maxPeople = 1, any overlap means conflict
+    // For services with maxPeople > 1, conflict only if capacity is reached
+    if (maxPeople === 1 && overlappingCount > 0) {
+      return true;
+    } else if (maxPeople > 1 && overlappingCount >= maxPeople) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Query to get weekly availability for a range of dates
@@ -130,10 +159,10 @@ export const getWeeklyAvailability = query({
         continue;
       }
 
-      // Filter appointments for this specific date and not cancelled
+      // Filter appointments for this specific date - only confirmed appointments block slots
       const dateAppointments = appointments.filter((apt) => {
         const aptDate = apt.appointmentTime.split("T")[0];
-        return aptDate === dateStr && apt.status !== "cancelled";
+        return aptDate === dateStr && apt.status === "confirmed";
       });
 
       // Generate individual time slots from availability ranges
@@ -238,10 +267,10 @@ export const getAvailableSlots = query({
       .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
       .collect();
 
-    // Filter appointments for this specific date and not cancelled
+    // Filter appointments for this specific date - only confirmed appointments block slots
     const dateAppointments = appointments.filter((apt) => {
       const aptDate = apt.appointmentTime.split("T")[0];
-      return aptDate === args.date && apt.status !== "cancelled";
+      return aptDate === args.date && apt.status === "confirmed";
     });
 
     // Generate individual time slots from availability ranges
@@ -290,6 +319,21 @@ export const getAvailableSlots = query({
 
 // Query to get all appointments for a business (for owner)
 export const getBusinessAppointments = query({
+  args: {
+    businessId: v.id("businesses"),
+  },
+  handler: async (ctx, args) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
+      .collect();
+
+    return appointments;
+  },
+});
+
+// Internal query to get all appointments for a business (for actions)
+export const getAppointmentsByBusinessId = internalQuery({
   args: {
     businessId: v.id("businesses"),
   },
@@ -492,6 +536,7 @@ export const createAppointment = mutation({
     }
 
     const serviceDuration = service.duration;
+    const serviceMaxPeople = service.maxPeople ?? 1; // Default to 1 if not specified
 
     // Check if slot conflicts with existing appointments
     const existingAppointments = await ctx.db
@@ -499,36 +544,71 @@ export const createAppointment = mutation({
       .withIndex("by_business_id", (q) => q.eq("businessId", args.businessId))
       .collect();
 
-    // Filter appointments for the same date
+    // Filter appointments for the same date - only confirmed appointments block slots
     const [newApptDate] = args.appointmentTime.split("T");
     const sameDayAppointments = existingAppointments.filter((apt) => {
       const [aptDate] = apt.appointmentTime.split("T");
-      return aptDate === newApptDate && apt.status !== "cancelled";
+      return aptDate === newApptDate && apt.status === "confirmed";
     });
 
     // Calculate the requested appointment's time range
     const newStartTime = new Date(args.appointmentTime).getTime();
     const newEndTime = newStartTime + serviceDuration * 60 * 1000;
 
-    // Check for overlapping appointments
-    const hasConflict = sameDayAppointments.some((apt) => {
-      const normalizedExistingServiceName = sanitizeString(apt.serviceName);
-      const existingService = business.appointmentConfig.services.find(
-        (s) => sanitizeString(s.name) === normalizedExistingServiceName
-      );
-      const existingDuration = existingService?.duration || 60;
+    // For services with maxPeople = 1, check for any overlapping appointments (existing behavior)
+    if (serviceMaxPeople === 1) {
+      const hasConflict = sameDayAppointments.some((apt) => {
+        const normalizedExistingServiceName = sanitizeString(apt.serviceName);
+        const existingService = business.appointmentConfig.services.find(
+          (s) => sanitizeString(s.name) === normalizedExistingServiceName
+        );
+        const existingDuration = existingService?.duration || 60;
 
-      const existingStartTime = new Date(apt.appointmentTime).getTime();
-      const existingEndTime = existingStartTime + existingDuration * 60 * 1000;
+        const existingStartTime = new Date(apt.appointmentTime).getTime();
+        const existingEndTime =
+          existingStartTime + existingDuration * 60 * 1000;
 
-      // Check if appointments overlap
-      // Two appointments overlap if:
-      // - New appointment starts before existing ends AND new ends after existing starts
-      return newStartTime < existingEndTime && newEndTime > existingStartTime;
-    });
+        // Check if appointments overlap
+        // Two appointments overlap if:
+        // - New appointment starts before existing ends AND new ends after existing starts
+        return newStartTime < existingEndTime && newEndTime > existingStartTime;
+      });
 
-    if (hasConflict) {
-      throw new Error("This time slot conflicts with an existing appointment");
+      if (hasConflict) {
+        throw new Error(
+          "This time slot conflicts with an existing appointment"
+        );
+      }
+    } else {
+      // For services with maxPeople > 1, count overlapping appointments for the same service
+      const normalizedNewServiceName = sanitizeString(args.serviceName);
+      const overlappingAppointments = sameDayAppointments.filter((apt) => {
+        const normalizedExistingServiceName = sanitizeString(apt.serviceName);
+
+        // Only count appointments for the same service
+        if (normalizedExistingServiceName !== normalizedNewServiceName) {
+          return false;
+        }
+
+        const existingService = business.appointmentConfig.services.find(
+          (s) => sanitizeString(s.name) === normalizedExistingServiceName
+        );
+        const existingDuration = existingService?.duration || 60;
+
+        const existingStartTime = new Date(apt.appointmentTime).getTime();
+        const existingEndTime =
+          existingStartTime + existingDuration * 60 * 1000;
+
+        // Check if appointments overlap
+        return newStartTime < existingEndTime && newEndTime > existingStartTime;
+      });
+
+      // Check if capacity is exceeded
+      if (overlappingAppointments.length >= serviceMaxPeople) {
+        throw new Error(
+          `This service is fully booked. Maximum capacity is ${serviceMaxPeople} people.`
+        );
+      }
     }
 
     // Generate unique cancellation token
@@ -698,6 +778,7 @@ export const confirmAppointment = action({
   args: {
     appointmentId: v.id("appointments"),
     ownerNote: v.optional(v.string()),
+    forceConfirm: v.optional(v.boolean()), // Flag to bypass capacity check
   },
   handler: async (
     ctx,
@@ -722,6 +803,71 @@ export const confirmAppointment = action({
 
     if (!business) {
       throw new Error("Business not found");
+    }
+
+    // Check capacity before confirming (unless forceConfirm is true)
+    if (!args.forceConfirm) {
+      // Find the service to get maxPeople
+      const normalizedServiceName = sanitizeString(appointment.serviceName);
+      const service = business.appointmentConfig.services.find(
+        (s) => sanitizeString(s.name) === normalizedServiceName
+      );
+      const serviceMaxPeople = service?.maxPeople ?? 1; // Default to 1 if not specified
+      const serviceDuration = service?.duration || 60;
+
+      // Get all appointments for the same date and time slot
+      const existingAppointments = await ctx.runQuery(
+        internal.appointments.getAppointmentsByBusinessId,
+        {
+          businessId: appointment.businessId,
+        }
+      );
+
+      const apptStartTime = new Date(appointment.appointmentTime).getTime();
+      const apptEndTime = apptStartTime + serviceDuration * 60 * 1000;
+
+      // Count overlapping confirmed appointments for the same service
+      const overlappingConfirmed = existingAppointments.filter((apt) => {
+        // Only count confirmed appointments (exclude the current appointment being confirmed)
+        if (apt.status !== "confirmed" || apt._id === args.appointmentId) {
+          return false;
+        }
+
+        // Only count appointments for the same service
+        const normalizedExistingServiceName = sanitizeString(apt.serviceName);
+        if (normalizedExistingServiceName !== normalizedServiceName) {
+          return false;
+        }
+
+        // Check if appointments overlap
+        const existingService = business.appointmentConfig.services.find(
+          (s) => sanitizeString(s.name) === normalizedExistingServiceName
+        );
+        const existingDuration = existingService?.duration || 60;
+        const existingStartTime = new Date(apt.appointmentTime).getTime();
+        const existingEndTime =
+          existingStartTime + existingDuration * 60 * 1000;
+
+        return (
+          apptStartTime < existingEndTime && apptEndTime > existingStartTime
+        );
+      });
+
+      // If capacity would be exceeded, throw a specific error
+      if (overlappingConfirmed.length >= serviceMaxPeople) {
+        const currentCount = overlappingConfirmed.length;
+        const maxCapacity = serviceMaxPeople;
+
+        let message: string;
+        if (maxCapacity === 1) {
+          message =
+            "Ya existe una cita confirmada para este servicio en este horario. La capacidad máxima es de 1 persona.";
+        } else {
+          message = `Este servicio ya tiene ${currentCount} ${currentCount === 1 ? "cita confirmada" : "citas confirmadas"} en este horario. La capacidad máxima es de ${maxCapacity} personas.`;
+        }
+
+        throw new Error(`CAPACITY_EXCEEDED: ${message}`);
+      }
     }
 
     // Confirm the appointment
@@ -910,6 +1056,7 @@ export const rescheduleAppointmentMutation = internalMutation({
     }
 
     const serviceDuration = service.duration;
+    const serviceMaxPeople = service.maxPeople ?? 1; // Default to 1 if not specified
 
     // Check if slot conflicts with existing appointments (excluding current one)
     const existingAppointments = await ctx.db
@@ -920,12 +1067,13 @@ export const rescheduleAppointmentMutation = internalMutation({
       .collect();
 
     // Filter appointments for the same date (excluding the current appointment being rescheduled)
+    // Only confirmed appointments block slots
     const [newApptDate] = args.newAppointmentTime.split("T");
     const sameDayAppointments = existingAppointments.filter((apt) => {
       const [aptDate] = apt.appointmentTime.split("T");
       return (
         aptDate === newApptDate &&
-        apt.status !== "cancelled" &&
+        apt.status === "confirmed" &&
         apt._id !== args.appointmentId
       );
     });
@@ -934,23 +1082,58 @@ export const rescheduleAppointmentMutation = internalMutation({
     const newStartTime = new Date(args.newAppointmentTime).getTime();
     const newEndTime = newStartTime + serviceDuration * 60 * 1000;
 
-    // Check for overlapping appointments
-    const hasConflict = sameDayAppointments.some((apt) => {
-      const normalizedExistingServiceName = sanitizeString(apt.serviceName);
-      const existingService = business.appointmentConfig.services.find(
-        (s) => sanitizeString(s.name) === normalizedExistingServiceName
-      );
-      const existingDuration = existingService?.duration || 60;
+    // For services with maxPeople = 1, check for any overlapping appointments (existing behavior)
+    if (serviceMaxPeople === 1) {
+      const hasConflict = sameDayAppointments.some((apt) => {
+        const normalizedExistingServiceName = sanitizeString(apt.serviceName);
+        const existingService = business.appointmentConfig.services.find(
+          (s) => sanitizeString(s.name) === normalizedExistingServiceName
+        );
+        const existingDuration = existingService?.duration || 60;
 
-      const existingStartTime = new Date(apt.appointmentTime).getTime();
-      const existingEndTime = existingStartTime + existingDuration * 60 * 1000;
+        const existingStartTime = new Date(apt.appointmentTime).getTime();
+        const existingEndTime =
+          existingStartTime + existingDuration * 60 * 1000;
 
-      // Check if appointments overlap
-      return newStartTime < existingEndTime && newEndTime > existingStartTime;
-    });
+        // Check if appointments overlap
+        return newStartTime < existingEndTime && newEndTime > existingStartTime;
+      });
 
-    if (hasConflict) {
-      throw new Error("This time slot conflicts with an existing appointment");
+      if (hasConflict) {
+        throw new Error(
+          "This time slot conflicts with an existing appointment"
+        );
+      }
+    } else {
+      // For services with maxPeople > 1, count overlapping appointments for the same service
+      const normalizedNewServiceName = sanitizeString(appointment.serviceName);
+      const overlappingAppointments = sameDayAppointments.filter((apt) => {
+        const normalizedExistingServiceName = sanitizeString(apt.serviceName);
+
+        // Only count appointments for the same service
+        if (normalizedExistingServiceName !== normalizedNewServiceName) {
+          return false;
+        }
+
+        const existingService = business.appointmentConfig.services.find(
+          (s) => sanitizeString(s.name) === normalizedExistingServiceName
+        );
+        const existingDuration = existingService?.duration || 60;
+
+        const existingStartTime = new Date(apt.appointmentTime).getTime();
+        const existingEndTime =
+          existingStartTime + existingDuration * 60 * 1000;
+
+        // Check if appointments overlap
+        return newStartTime < existingEndTime && newEndTime > existingStartTime;
+      });
+
+      // Check if capacity is exceeded
+      if (overlappingAppointments.length >= serviceMaxPeople) {
+        throw new Error(
+          `This service is fully booked. Maximum capacity is ${serviceMaxPeople} people.`
+        );
+      }
     }
 
     // Generate cancellation token if it doesn't exist

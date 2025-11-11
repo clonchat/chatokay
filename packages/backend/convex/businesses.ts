@@ -194,6 +194,7 @@ export const updateServices = mutation({
         name: v.string(),
         duration: v.number(),
         price: v.optional(v.number()),
+        maxPeople: v.optional(v.number()),
       })
     ),
   },
@@ -227,10 +228,25 @@ export const updateServices = mutation({
       throw new Error("User does not own this business");
     }
 
+    // Validate and normalize services
+    const validatedServices = args.services.map((service) => {
+      // Ensure maxPeople is at least 1, default to 1 if not provided
+      const maxPeople = service.maxPeople ?? 1;
+      if (maxPeople < 1) {
+        throw new Error(
+          `maxPeople must be at least 1 for service "${service.name}"`
+        );
+      }
+      return {
+        ...service,
+        maxPeople: maxPeople,
+      };
+    });
+
     // Update the services
     await ctx.db.patch(args.businessId, {
       appointmentConfig: {
-        services: args.services,
+        services: validatedServices,
       },
     });
 

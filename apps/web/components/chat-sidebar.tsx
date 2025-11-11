@@ -21,6 +21,7 @@ interface Service {
   name: string;
   duration: number;
   price?: number;
+  maxPeople?: number;
 }
 
 interface WeeklyAvailability {
@@ -124,6 +125,11 @@ export function ChatSidebar({ services, businessId, phone }: ChatSidebarProps) {
                         {service.price && (
                           <Badge variant="outline" className="text-xs">
                             ${service.price.toFixed(2)}
+                          </Badge>
+                        )}
+                        {(service.maxPeople ?? 1) > 1 && (
+                          <Badge variant="outline" className="text-xs">
+                            Hasta {service.maxPeople} personas
                           </Badge>
                         )}
                       </div>

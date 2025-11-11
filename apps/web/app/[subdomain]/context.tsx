@@ -18,6 +18,7 @@ export interface Business {
     name: string;
     duration: number;
     price?: number;
+    maxPeople?: number;
   }>;
 }
 

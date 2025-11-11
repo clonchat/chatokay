@@ -21,6 +21,7 @@ interface Service {
   name: string;
   duration: number;
   price?: number;
+  maxPeople?: number;
 }
 
 export default function ServiciosPage() {
@@ -125,9 +126,16 @@ export default function ServiciosPage() {
                       )}
                     </div>
                     <CardDescription>
-                      <Badge variant="outline" className="mt-2">
-                        Duración: {service.duration} minutos
-                      </Badge>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        <Badge variant="outline">
+                          Duración: {service.duration} minutos
+                        </Badge>
+                        {(service.maxPeople ?? 1) > 1 && (
+                          <Badge variant="outline">
+                            Capacidad: {service.maxPeople} personas
+                          </Badge>
+                        )}
+                      </div>
                     </CardDescription>
                   </CardHeader>
                 </Card>

@@ -34,6 +34,7 @@ export default function ServiciosPage() {
         name: "",
         duration: 30,
         price: 0,
+        maxPeople: 1,
       },
     ]);
   };
@@ -109,6 +110,9 @@ export default function ServiciosPage() {
                     Duración (min)
                   </th>
                   <th className="text-left p-2 font-medium w-32">Precio</th>
+                  <th className="text-left p-2 font-medium w-32">
+                    Número de personas
+                  </th>
                   <th className="text-left p-2 font-medium w-20">Acciones</th>
                 </tr>
               </thead>
@@ -116,7 +120,7 @@ export default function ServiciosPage() {
                 {services.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="text-center p-4 text-muted-foreground"
                     >
                       No hay servicios. Haz clic en "+ Añadir Servicio" para
@@ -171,6 +175,21 @@ export default function ServiciosPage() {
                         />
                       </td>
                       <td className="p-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={service.maxPeople ?? 1}
+                          onChange={(e) =>
+                            updateService(
+                              service.id,
+                              "maxPeople",
+                              Math.max(1, parseInt(e.target.value) || 1)
+                            )
+                          }
+                          className="h-9"
+                        />
+                      </td>
+                      <td className="p-2">
                         <Button
                           type="button"
                           variant="ghost"
@@ -215,6 +234,10 @@ export default function ServiciosPage() {
               disponibles
             </li>
             <li>El precio es opcional y se mostrará a los clientes</li>
+            <li>
+              El número de personas permite servicios grupales (ej: clases de
+              spinning con capacidad para 10 personas)
+            </li>
             <li>Puedes editar o eliminar servicios en cualquier momento</li>
           </ul>
         </CardContent>
