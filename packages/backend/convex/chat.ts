@@ -3,10 +3,10 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
 import { v } from "convex/values";
 import { z } from "zod";
-import { api, components } from "./_generated/api.js";
+import { api, components, internal } from "./_generated/api.js";
 import { action } from "./_generated/server.js";
 
-// Initialize OpenRouter provider
+// Initialize OpenRouter provider with usage tracking enabled
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
@@ -71,6 +71,7 @@ function cleanResponseText(text: string): string {
 
 /**
  * Generates text with retry logic when response is empty
+ * Returns both the cleaned text and the full result for usage tracking
  */
 async function generateTextWithRetry(
   agent: Agent<any, any>,
@@ -78,8 +79,8 @@ async function generateTextWithRetry(
   sessionUserId: string,
   agentMessages: Array<{ role: "user" | "assistant"; content: string }>,
   maxRetries: number = 3
-): Promise<string> {
-  let lastResult: { text: string; finishReason: string } | null = null;
+): Promise<{ text: string; result: any }> {
+  let lastResult: any = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(
@@ -96,22 +97,19 @@ async function generateTextWithRetry(
       }
     );
 
-    lastResult = {
-      text: result.text || "",
-      finishReason: result.finishReason || "unknown",
-    };
+    lastResult = result;
 
     console.log(`[Chat] Agent response received (attempt ${attempt}):`, {
-      text: lastResult.text,
-      finishReason: lastResult.finishReason,
+      text: result.text,
+      finishReason: result.finishReason,
     });
 
     // Clean the response text
-    const cleanText = cleanResponseText(lastResult.text);
+    const cleanText = cleanResponseText(result.text || "");
 
     // If we have non-empty text after cleaning, return it
     if (cleanText.length > 0) {
-      return cleanText;
+      return { text: cleanText, result };
     }
 
     // If this was the last attempt, break
@@ -129,7 +127,10 @@ async function generateTextWithRetry(
   console.warn(
     `[Chat] All ${maxRetries} attempts returned empty text. Using fallback message.`
   );
-  return "Lo siento, no pude procesar tu solicitud correctamente. Por favor, intenta nuevamente.";
+  return {
+    text: "Lo siento, no pude procesar tu solicitud correctamente. Por favor, intenta nuevamente.",
+    result: lastResult,
+  };
 }
 
 /**
@@ -369,10 +370,14 @@ export const sendMessage = action({
       },
     };
 
-    // Create agent instance with tools
+    // Create agent instance with tools and usage tracking enabled
     const agent = new Agent(components.agent, {
       name: `Agent for ${business.name}`,
-      languageModel: openrouter("openai/gpt-oss-20b"),
+      languageModel: openrouter("openai/gpt-oss-20b", {
+        usage: {
+          include: true,
+        },
+      }),
       instructions: systemPrompt,
       tools,
       maxSteps: 5,
@@ -400,13 +405,43 @@ export const sendMessage = action({
     console.log("[Chat] Calling agent with session:", sessionUserId);
     console.log("[Chat] Total messages in context:", agentMessages.length);
 
-    const cleanText = await generateTextWithRetry(
+    const { text: cleanText, result } = await generateTextWithRetry(
       agent,
       ctx,
       sessionUserId,
       agentMessages,
       3
     );
+
+    // Track usage if we have token information
+    try {
+      const tokensUsed =
+        result?.providerMetadata?.openrouter?.usage?.totalTokens || 0;
+
+      if (tokensUsed > 0) {
+        // Get the full business object to access userId
+        const fullBusiness = await ctx.runQuery(
+          internal.businesses.getBusinessById,
+          {
+            businessId: business._id,
+          }
+        );
+
+        if (fullBusiness) {
+          await ctx.runMutation(internal.usageTracking.trackUsage, {
+            userId: fullBusiness.userId,
+            businessId: business._id,
+            tokensUsed,
+          });
+          console.log(
+            `[Chat] Tracked ${tokensUsed} tokens for user ${fullBusiness.userId}`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("[Chat] Error tracking usage:", error);
+      // Don't fail the request if usage tracking fails
+    }
 
     return {
       content: cleanText,
@@ -482,7 +517,7 @@ export const sendLandingMessage = action({
 
     console.log("[Landing Chat] Calling agent with session:", sessionUserId);
 
-    const cleanText = await generateTextWithRetry(
+    const { text: cleanText } = await generateTextWithRetry(
       agent,
       ctx,
       sessionUserId,

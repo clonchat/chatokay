@@ -1,12 +1,15 @@
 import { atom } from "jotai";
 import type { Doc } from "@workspace/backend/_generated/dataModel";
 
+// User role types
+export type UserRole = "client" | "sales" | "admin";
+
 // Auth status types
 export type AuthStatus =
   | "loading" // Initial loading state
   | "unauthenticated" // User not signed in
-  | "onboarding" // User signed in but no business
-  | "authenticated"; // User signed in with business
+  | "onboarding" // User signed in but no business (clients only)
+  | "authenticated"; // User signed in with business or sales/admin user
 
 // Business type with resolved logo URL (from the API)
 type BusinessWithLogoUrl = Omit<Doc<"businesses">, "visualConfig"> & {
@@ -30,11 +33,18 @@ export const clerkAuthAtom = atom<{
   isSignedIn: false,
 });
 
-// Auth status atom - computed state based on Clerk auth, user and business
+// Role atom - computed from user data
+export const roleAtom = atom<UserRole | null>((get) => {
+  const user = get(userAtom);
+  return user?.role || null;
+});
+
+// Auth status atom - computed state based on Clerk auth, user, business, and role
 export const authStatusAtom = atom<AuthStatus>((get) => {
   const clerkAuth = get(clerkAuthAtom);
   const user = get(userAtom);
   const business = get(businessAtom);
+  const role = get(roleAtom);
 
   // If Clerk is not loaded yet, we're still loading
   if (!clerkAuth.isLoaded) {
@@ -51,13 +61,23 @@ export const authStatusAtom = atom<AuthStatus>((get) => {
     return "loading";
   }
 
-  // User exists but no business means onboarding needed
-  if (business === null) {
-    return "onboarding";
+  // Sales and Admin users skip onboarding - they're authenticated immediately
+  if (role === "sales" || role === "admin") {
+    return "authenticated";
   }
 
-  // User has business - fully authenticated
-  return "authenticated";
+  // Client users need a business to be fully authenticated
+  if (role === "client") {
+    // User exists but no business means onboarding needed
+    if (business === null) {
+      return "onboarding";
+    }
+    // User has business - fully authenticated
+    return "authenticated";
+  }
+
+  // Fallback - treat as loading if role is unknown
+  return "loading";
 });
 
 // Derived atoms for convenience

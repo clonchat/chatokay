@@ -6,7 +6,16 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     clerkId: v.string(), // ID de Clerk para la relación
-  }).index("by_clerk_id", ["clerkId"]),
+    role: v.optional(
+      v.union(v.literal("client"), v.literal("sales"), v.literal("admin"))
+    ),
+    country: v.optional(v.string()),
+    referralCode: v.optional(v.string()), // Código único para comerciales
+    referralId: v.optional(v.id("users")), // ID del comercial que refirió al cliente
+  })
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_referral_code", ["referralCode"])
+    .index("by_referral_id", ["referralId"]),
 
   businesses: defineTable({
     userId: v.id("users"),
@@ -85,4 +94,15 @@ export default defineSchema({
   })
     .index("by_chat_id", ["chatId"])
     .index("by_business_id", ["businessId"]),
+
+  usageTracking: defineTable({
+    userId: v.id("users"),
+    businessId: v.optional(v.id("businesses")),
+    date: v.string(), // YYYY-MM-DD format
+    requestCount: v.number(),
+    tokensUsed: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_and_date", ["userId", "date"])
+    .index("by_business_and_date", ["businessId", "date"]),
 });

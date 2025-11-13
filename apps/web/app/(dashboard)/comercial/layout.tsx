@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { useRouter } from "next/navigation";
 import { authStatusAtom, roleAtom } from "@/lib/store/auth-atoms";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
-import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { LoadingScreen } from "@/components/loading";
+import { ComercialSidebar } from "@/components/comercial-sidebar";
+import { ComercialTopbar } from "@/components/comercial-topbar";
 
-export default function DashboardLayout({
+export default function ComercialLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -25,27 +25,16 @@ export default function DashboardLayout({
     }
 
     if (authStatus === "unauthenticated") {
-      router.push("/sign-in");
+      router.push("/internal/sign-in");
       return;
     }
 
-    if (authStatus === "onboarding") {
-      router.push("/onboarding");
+    // Only sales and admin users can access this area
+    if (role && role !== "sales" && role !== "admin") {
+      // Redirect client users to their dashboard
+      router.push("/dashboard");
       return;
     }
-
-    // Redirect sales/admin users to their respective dashboards
-    if (role === "admin") {
-      router.push("/admin");
-      return;
-    }
-
-    if (role === "sales") {
-      router.push("/comercial");
-      return;
-    }
-
-    // If authenticated and client role, allow access to dashboard
   }, [authStatus, role, router]);
 
   // Show loading while checking auth status
@@ -53,21 +42,19 @@ export default function DashboardLayout({
     return <LoadingScreen message="Cargando..." />;
   }
 
-  // If not authenticated or needs onboarding, show loading (will redirect)
-  if (authStatus !== "authenticated") {
-    return <LoadingScreen message="Redirigiendo..." />;
+  // If not authenticated or not sales/admin, show loading (will redirect)
+  if (
+    authStatus !== "authenticated" ||
+    (role !== "sales" && role !== "admin")
+  ) {
+    return <LoadingScreen message="Verificando permisos..." />;
   }
 
-  // Don't render layout for sales/admin users - they have their own layouts
-  if (role === "admin" || role === "sales") {
-    return <>{children}</>;
-  }
-
-  // User is authenticated and has business, show dashboard layout
+  // Sales user - show sales layout with same styles as client layout
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <DashboardSidebar
+      <ComercialSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
@@ -75,7 +62,7 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden lg:ml-0">
         {/* Topbar */}
-        <DashboardTopbar
+        <ComercialTopbar
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
         />
@@ -88,3 +75,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+

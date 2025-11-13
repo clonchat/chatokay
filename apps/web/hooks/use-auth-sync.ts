@@ -1,8 +1,8 @@
 import { businessAtom, userAtom, clerkAuthAtom } from "@/lib/store/auth-atoms";
 import { api } from "@workspace/backend/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useAtom } from "jotai";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 /**
@@ -21,6 +21,8 @@ export function useAuthSync(): {
   const [, setUser] = useAtom(userAtom);
   const [, setBusiness] = useAtom(businessAtom);
   const [, setClerkAuth] = useAtom(clerkAuthAtom);
+  const updateMyCountry = useMutation(api.users.updateMyCountry);
+  const countryDetected = useRef(false);
 
   // Update Clerk auth state
   useEffect(() => {
@@ -43,6 +45,58 @@ export function useAuthSync(): {
       setBusiness(business);
     }
   }, [business, setBusiness]);
+
+  // Detect and update country if user doesn't have one
+  useEffect(() => {
+    if (user && !user.country && !countryDetected.current && isSignedIn) {
+      countryDetected.current = true;
+
+      // Detect country using a simple public API directly from the browser
+      // Using ipapi.co which is free and reliable
+      fetch("https://ipapi.co/json/")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.country_code) {
+            updateMyCountry({ country: data.country_code })
+              .then(() => {
+                console.log("Country updated:", data.country_code);
+              })
+              .catch((error) => {
+                console.error("Error updating country:", error);
+                countryDetected.current = false; // Retry on next mount if failed
+              });
+          }
+        })
+        .catch((error) => {
+          console.error("Error detecting country:", error);
+          // Try fallback API
+          fetch("https://ip-api.com/json/?fields=countryCode")
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.countryCode) {
+                updateMyCountry({ country: data.countryCode })
+                  .then(() => {
+                    console.log(
+                      "Country updated (fallback):",
+                      data.countryCode
+                    );
+                  })
+                  .catch((error) => {
+                    console.error("Error updating country (fallback):", error);
+                    countryDetected.current = false;
+                  });
+              }
+            })
+            .catch((fallbackError) => {
+              console.error(
+                "All country detection methods failed:",
+                fallbackError
+              );
+              countryDetected.current = false; // Allow retry
+            });
+        });
+    }
+  }, [user, isSignedIn, updateMyCountry]);
 
   return {
     user,

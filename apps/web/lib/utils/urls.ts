@@ -54,3 +54,31 @@ export function getChatbotDomain(subdomain: string): string {
   return `${subdomain}.chatokay.com`;
 }
 
+/**
+ * Generates the referral URL with the referral code
+ * @param referralCode - The referral code (e.g., "SALES-ABC123")
+ * @returns The full URL with referral code query parameter
+ */
+export function getReferralUrl(referralCode: string): string {
+  // Check if we're in development
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+
+    // For localhost development
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `http://localhost:3000/sign-up?ref=${referralCode}`;
+    }
+
+    // For production
+    return `https://chatokay.com/sign-up?ref=${referralCode}`;
+  }
+
+  // Server-side fallback
+  const isDev = process.env.NODE_ENV === "development";
+  if (isDev) {
+    return `http://localhost:3000/sign-up?ref=${referralCode}`;
+  }
+
+  return `https://chatokay.com/sign-up?ref=${referralCode}`;
+}
+

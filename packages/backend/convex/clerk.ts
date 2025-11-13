@@ -58,7 +58,29 @@ export const webhook = httpAction(async (ctx, request) => {
         ? `${firstName} ${lastName}`
         : firstName || lastName || undefined;
 
-    console.log("Processing user:", { clerkId, email, name });
+    // Country will be detected client-side after registration
+    // (Webhooks are server-to-server and don't have access to client IP/headers)
+    const country = undefined;
+
+    // Extract role from unsafe metadata if present (for internal signups)
+    const role = userData.unsafe_metadata?.role as
+      | "sales"
+      | "client"
+      | undefined;
+
+    // Extract referral code from unsafe metadata if present
+    const referralCode = userData.unsafe_metadata?.referralCode as
+      | string
+      | undefined;
+
+    console.log("Processing user:", {
+      clerkId,
+      email,
+      name,
+      country,
+      role,
+      referralCode,
+    });
 
     try {
       // Call internal mutation to sync user
@@ -66,6 +88,9 @@ export const webhook = httpAction(async (ctx, request) => {
         clerkId,
         email,
         name,
+        country,
+        role,
+        referralCode,
       });
       console.log("User synced successfully");
     } catch (error) {
@@ -83,6 +108,11 @@ export const syncUser = internalMutation({
     clerkId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
+    country: v.optional(v.string()),
+    role: v.optional(
+      v.union(v.literal("client"), v.literal("sales"), v.literal("admin"))
+    ),
+    referralCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     console.log("Syncing user:", args);
@@ -93,20 +123,61 @@ export const syncUser = internalMutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .first();
 
+    // Resolve referralId from referralCode if provided
+    let referralId: any = undefined;
+    if (args.referralCode) {
+      const salesUser = await ctx.db
+        .query("users")
+        .withIndex("by_referral_code", (q) =>
+          q.eq("referralCode", args.referralCode!)
+        )
+        .first();
+
+      if (
+        salesUser &&
+        (salesUser.role === "sales" || salesUser.role === "admin")
+      ) {
+        referralId = salesUser._id;
+        console.log("Found referral sales user:", salesUser._id);
+      } else {
+        console.warn("Invalid referral code:", args.referralCode);
+      }
+    }
+
     if (existingUser) {
       console.log("User exists, updating:", existingUser._id);
-      // Update existing user
-      await ctx.db.patch(existingUser._id, {
+      // Update existing user (preserve role if already set)
+      const updateData: any = {
         email: args.email,
         name: args.name,
-      });
+      };
+
+      // Only update country if provided and not already set
+      if (args.country && !existingUser.country) {
+        updateData.country = args.country;
+      }
+
+      // Only update role if provided and not already set
+      if (args.role && !existingUser.role) {
+        updateData.role = args.role;
+      }
+
+      // Only update referralId if provided and not already set
+      if (referralId && !existingUser.referralId) {
+        updateData.referralId = referralId;
+      }
+
+      await ctx.db.patch(existingUser._id, updateData);
     } else {
       console.log("Creating new user");
-      // Create new user
+      // Create new user with default role "client" if not specified
       const userId = await ctx.db.insert("users", {
         clerkId: args.clerkId,
         email: args.email,
         name: args.name,
+        role: args.role || "client", // Default to "client"
+        country: args.country,
+        referralId: referralId,
       });
       console.log("User created with ID:", userId);
     }
