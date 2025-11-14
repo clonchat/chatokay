@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import {
@@ -8,7 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { ClipboardList, BarChart3, MessageSquare } from "lucide-react";
+import { Button } from "@workspace/ui/components/button";
+import { ClipboardList, BarChart3, MessageSquare, User as UserIcon } from "lucide-react";
+import { ClientContactModal } from "@/components/client-contact-modal";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 export default function ComercialClientsPage() {
   const referredClients = useQuery(api.users.getMyReferredClients);
@@ -16,6 +20,8 @@ export default function ComercialClientsPage() {
   const topConsumers = useQuery(api.usageTracking.getTopConsumers, {
     limit: 5,
   });
+
+  const [contactModalUserId, setContactModalUserId] = useState<Id<"users"> | null>(null);
 
   return (
     <div className="space-y-6">
@@ -51,6 +57,7 @@ export default function ComercialClientsPage() {
                     <th className="text-left p-3">País</th>
                     <th className="text-right p-3">Requests</th>
                     <th className="text-right p-3">Tokens</th>
+                    <th className="text-right p-3">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -84,6 +91,19 @@ export default function ComercialClientsPage() {
                       </td>
                       <td className="p-3 text-right font-semibold">
                         {consumer.totalTokens.toLocaleString()}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setContactModalUserId(consumer.userId as Id<"users">)}
+                            className="h-8"
+                          >
+                            <UserIcon className="h-4 w-4 mr-1" />
+                            Contacto
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -121,7 +141,7 @@ export default function ComercialClientsPage() {
                       <th className="text-left p-3">Cliente</th>
                       <th className="text-left p-3">Email</th>
                       <th className="text-left p-3">País</th>
-                      <th className="text-left p-3">Estado</th>
+                      <th className="text-right p-3">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -166,9 +186,17 @@ export default function ComercialClientsPage() {
                           )}
                         </td>
                         <td className="p-3">
-                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">
-                            Activo
-                          </span>
+                          <div className="flex items-center justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setContactModalUserId(client._id)}
+                              className="h-8"
+                            >
+                              <UserIcon className="h-4 w-4 mr-1" />
+                              Contacto
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -202,6 +230,21 @@ export default function ComercialClientsPage() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Contact Modal */}
+      {contactModalUserId && (
+        <ClientContactModal
+          userId={contactModalUserId}
+          userName={
+            referredClients?.find((c) => c._id === contactModalUserId)?.name || null
+          }
+          userEmail={
+            referredClients?.find((c) => c._id === contactModalUserId)?.email || ""
+          }
+          isOpen={!!contactModalUserId}
+          onClose={() => setContactModalUserId(null)}
+        />
+      )}
     </div>
   );
 }

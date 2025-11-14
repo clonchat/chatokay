@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   Users,
   Shield,
+  CreditCard,
+  Sparkles,
 } from "lucide-react";
 
 const navigation = [
@@ -21,6 +23,16 @@ const navigation = [
     name: "Mis Clientes",
     href: "/comercial/clientes",
     icon: Users,
+  },
+  {
+    name: "Suscripciones",
+    href: "/comercial/suscripciones",
+    icon: CreditCard,
+  },
+  {
+    name: "Promociones",
+    href: "/comercial/promociones",
+    icon: Sparkles,
   },
 ];
 

@@ -242,6 +242,32 @@ export const sendMessage = action({
       throw new Error(`Business not found for subdomain: ${args.subdomain}`);
     }
 
+    // Get full business object to access userId
+    const fullBusiness = await ctx.runQuery(
+      internal.businesses.getBusinessById,
+      {
+        businessId: business._id,
+      }
+    );
+
+    if (!fullBusiness) {
+      throw new Error(`Business not found`);
+    }
+
+    // Check subscription status
+    const subscriptionStatus = await ctx.runQuery(
+      internal.subscriptions.checkSubscriptionStatus,
+      {
+        userId: fullBusiness.userId,
+      }
+    );
+
+    if (!subscriptionStatus.active) {
+      throw new Error(
+        "Tu suscripción ha expirado. Por favor, renueva tu suscripción para continuar usando el servicio."
+      );
+    }
+
     // Generate contextual information
     const currentDate = new Date().toISOString().split("T")[0] ?? "";
     const currentDay =
@@ -510,7 +536,7 @@ export const sendLandingMessage = action({
     // Create agent instance (simpler, no tools needed for landing)
     const agent = new Agent(components.agent, {
       name: "ChatOkay Landing Agent",
-      languageModel: openrouter("minimax/minimax-m2:free"),
+      languageModel: openrouter("openai/gpt-oss-120b"),
       instructions: systemPrompt,
       maxSteps: 3,
     });

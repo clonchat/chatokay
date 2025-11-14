@@ -105,4 +105,50 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_user_and_date", ["userId", "date"])
     .index("by_business_and_date", ["businessId", "date"]),
+
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    businessId: v.optional(v.id("businesses")),
+    status: v.union(
+      v.literal("trial"),
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("expired")
+    ),
+    trialEndDate: v.optional(v.number()), // timestamp
+    currentPeriodEnd: v.optional(v.number()), // timestamp
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    planType: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    priceId: v.optional(v.string()),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_stripe_customer_id", ["stripeCustomerId"])
+    .index("by_stripe_subscription_id", ["stripeSubscriptionId"]),
+
+  promotions: defineTable({
+    salesUserId: v.id("users"), // ID del comercial que creó la promoción
+    clientUserId: v.id("users"), // ID del cliente específico
+    monthlyPrice: v.number(), // Precio mensual personalizado en céntimos
+    annualPrice: v.number(), // Precio anual calculado (monthlyPrice * 12 * 0.8) en céntimos
+    stripeCouponId: v.string(), // ID del coupon en Stripe
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("canceled")
+    ),
+    createdAt: v.number(), // timestamp
+    updatedAt: v.number(), // timestamp
+    notes: v.optional(v.string()), // Notas opcionales del comercial
+  })
+    .index("by_sales_user_id", ["salesUserId"])
+    .index("by_client_user_id", ["clientUserId"])
+    .index("by_status", ["status"]),
+
+  platformSettings: defineTable({
+    platformFeePercentage: v.number(), // Porcentaje de costes de plataforma (ej: 10 = 10%)
+    updatedAt: v.number(), // timestamp
+    updatedBy: v.id("users"), // ID del admin que actualizó
+  }),
 });

@@ -20,7 +20,10 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
+  User as UserIcon,
 } from "lucide-react";
+import { ClientContactModal } from "@/components/client-contact-modal";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 type SortColumn = "name" | "email" | "country" | "requests" | "tokens" | "cost";
 type SortDirection = "asc" | "desc";
@@ -67,6 +70,8 @@ export default function AdminClientsPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("tokens");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [contactModalUserId, setContactModalUserId] =
+    useState<Id<"users"> | null>(null);
 
   // Unify clients data with usage statistics
   const unifiedClients = useMemo<UnifiedClient[]>(() => {
@@ -319,7 +324,9 @@ export default function AdminClientsPage() {
                           <SortButton column="cost" />
                         </div>
                       </th>
-                      <th className="text-right p-3 text-foreground"></th>
+                      <th className="text-right p-3 text-foreground">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -354,17 +361,32 @@ export default function AdminClientsPage() {
                         <td className="p-3 text-right font-semibold text-green-600 dark:text-green-400">
                           ${client.cost.toFixed(4)}
                         </td>
-                        <td className="p-3 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              router.push(`/admin/clientes/${client.userId}`)
-                            }
-                            className="h-8 w-8 p-0"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setContactModalUserId(
+                                  client.userId as Id<"users">
+                                )
+                              }
+                              className="h-8"
+                            >
+                              <UserIcon className="h-4 w-4 mr-1" />
+                              Contacto
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                router.push(`/admin/clientes/${client.userId}`)
+                              }
+                              className="h-8 w-8 p-0"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -414,6 +436,21 @@ export default function AdminClientsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Contact Modal */}
+      {contactModalUserId && (
+        <ClientContactModal
+          userId={contactModalUserId}
+          userName={
+            clients?.find((c) => c._id === contactModalUserId)?.name || null
+          }
+          userEmail={
+            clients?.find((c) => c._id === contactModalUserId)?.email || ""
+          }
+          isOpen={!!contactModalUserId}
+          onClose={() => setContactModalUserId(null)}
+        />
+      )}
     </div>
   );
 }

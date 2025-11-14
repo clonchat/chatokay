@@ -238,7 +238,18 @@ export default function OnboardingPage() {
       toast.success("Negocio creado exitosamente");
       setStep(2);
     } catch (error: any) {
-      toast.error(error.message || "Error al crear el negocio");
+      // Manejar errores específicos de manera más amigable
+      const errorMessage = error.message || "";
+      
+      if (errorMessage.includes("subdominio") || errorMessage.includes("Subdomain")) {
+        toast.error("Este subdominio ya está en uso. Por favor, elige otro.");
+      } else if (errorMessage.includes("User already has a business") || errorMessage.includes("ya existe")) {
+        toast.error("Ya tienes un negocio registrado.");
+      } else if (errorMessage.includes("autenticado") || errorMessage.includes("authenticated")) {
+        toast.error("Debes iniciar sesión para crear un negocio.");
+      } else {
+        toast.error(errorMessage || "Error al crear el negocio. Por favor, intenta de nuevo.");
+      }
     } finally {
       setIsLoading(false);
     }

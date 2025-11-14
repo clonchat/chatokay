@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { webhook } from "./clerk.js";
 import { handleTelegramWebhook } from "./telegram.js";
+import { webhook as stripeWebhook } from "./stripeWebhook.js";
 
 const http = httpRouter();
 
@@ -17,6 +18,13 @@ http.route({
   path: "/telegram-webhook",
   method: "POST",
   handler: handleTelegramWebhook,
+});
+
+// Mount Stripe webhook route
+http.route({
+  path: "/stripe-webhook",
+  method: "POST",
+  handler: stripeWebhook,
 });
 
 export default http;

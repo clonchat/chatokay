@@ -171,15 +171,27 @@ export const syncUser = internalMutation({
     } else {
       console.log("Creating new user");
       // Create new user with default role "client" if not specified
+      const finalRole = args.role || "client";
       const userId = await ctx.db.insert("users", {
         clerkId: args.clerkId,
         email: args.email,
         name: args.name,
-        role: args.role || "client", // Default to "client"
+        role: finalRole,
         country: args.country,
         referralId: referralId,
       });
       console.log("User created with ID:", userId);
+
+      // Create trial subscription for client users
+      if (finalRole === "client") {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.subscriptions.createTrialSubscription,
+          {
+            userId,
+          }
+        );
+      }
     }
   },
 });

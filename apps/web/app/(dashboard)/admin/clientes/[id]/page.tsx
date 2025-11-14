@@ -10,7 +10,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { Badge } from "@workspace/ui/components/badge";
+import { ArrowLeft, Calendar, CreditCard, DollarSign } from "lucide-react";
 import { Id } from "@workspace/backend/_generated/dataModel";
 
 function formatMonth(month: string): string {
@@ -28,6 +29,13 @@ export default function ClientDetailPage() {
   const monthlyUsage = useQuery(api.usageTracking.getUserUsageByMonth, {
     userId: clientId,
   });
+  const revenue = useQuery(api.subscriptions.getClientRevenue, {
+    userId: clientId,
+  });
+  const subscriptionHistory = useQuery(
+    api.subscriptions.getClientSubscriptionHistory,
+    { userId: clientId }
+  );
 
   if (!client) {
     return (
@@ -82,6 +90,187 @@ export default function ClientDetailPage() {
                 {client.role}
               </span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Billing Section */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <CreditCard className="h-5 w-5" />
+            Facturación
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Total Revenue */}
+          <div className="rounded-xl border bg-muted/50 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Facturado (MRR)</p>
+                <p className="text-3xl font-bold text-foreground mt-1">
+                  {revenue?.totalRevenue
+                    ? `${revenue.totalRevenue.toLocaleString("es-ES", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}€`
+                    : "0,00€"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ingresos recurrentes mensuales
+                </p>
+              </div>
+              <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Current Subscription Info */}
+          {revenue?.currentSubscription && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Suscripción Actual
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Estado</p>
+                  {revenue.currentSubscription.status === "active" ? (
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                      Activa
+                    </Badge>
+                  ) : revenue.currentSubscription.status === "past_due" ? (
+                    <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                      Pago pendiente
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">Inactiva</Badge>
+                  )}
+                </div>
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Plan</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {revenue.currentSubscription.planType === "annual"
+                      ? "Anual"
+                      : revenue.currentSubscription.planType === "monthly"
+                        ? "Mensual"
+                        : "-"}
+                  </p>
+                </div>
+                {revenue.currentSubscription.currentPeriodEnd && (
+                  <div className="rounded-lg border bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Próxima Renovación
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      {new Date(
+                        revenue.currentSubscription.currentPeriodEnd
+                      ).toLocaleDateString("es-ES", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                )}
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Ingresos Mensuales
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {revenue.currentSubscription.monthlyRevenue
+                      ? `${revenue.currentSubscription.monthlyRevenue.toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}€`
+                      : "0,00€"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Subscription History */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              Historial de Suscripciones
+            </h3>
+            {!subscriptionHistory ? (
+              <div className="text-muted-foreground py-4 text-center">
+                Cargando...
+              </div>
+            ) : subscriptionHistory.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No hay historial de suscripciones disponible
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left p-3 text-foreground">
+                        Fecha Inicio
+                      </th>
+                      <th className="text-left p-3 text-foreground">
+                        Fecha Fin
+                      </th>
+                      <th className="text-left p-3 text-foreground">Plan</th>
+                      <th className="text-left p-3 text-foreground">Estado</th>
+                      <th className="text-right p-3 text-foreground">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptionHistory.map((item, index) => (
+                      <tr
+                        key={index}
+                        className="border-b border-border hover:bg-muted transition-colors"
+                      >
+                        <td className="p-3 text-sm text-foreground">
+                          {new Date(item.startDate).toLocaleDateString("es-ES", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </td>
+                        <td className="p-3 text-sm text-foreground">
+                          {item.endDate
+                            ? new Date(item.endDate).toLocaleDateString("es-ES", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })
+                            : "En curso"}
+                        </td>
+                        <td className="p-3 text-sm text-foreground">
+                          {item.planType === "annual" ? "Anual" : "Mensual"}
+                        </td>
+                        <td className="p-3">
+                          {item.status === "active" ? (
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                              Activa
+                            </Badge>
+                          ) : item.status === "past_due" ? (
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                              Pago pendiente
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Inactiva</Badge>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-semibold text-foreground">
+                          {item.amount
+                            ? `${item.amount.toLocaleString("es-ES", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}€`
+                            : "0,00€"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

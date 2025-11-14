@@ -108,6 +108,45 @@ export const getBusinessById = internalQuery({
   },
 });
 
+// Query to get business by userId (admin and sales can view)
+export const getBusinessByUserId = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Require admin or sales role to view business data
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "sales")) {
+      throw new Error("Unauthorized");
+    }
+
+    const business = await ctx.db
+      .query("businesses")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!business) {
+      return null;
+    }
+
+    return {
+      _id: business._id,
+      name: business.name,
+      email: business.email,
+      phone: business.phone,
+    };
+  },
+});
+
 // Mutation to create a new business
 export const create = mutation({
   args: {
@@ -160,7 +199,7 @@ export const create = mutation({
       .first();
 
     if (subdomainTaken) {
-      throw new Error("Subdomain is already taken");
+      throw new Error("Este subdominio ya está en uso. Por favor, elige otro.");
     }
 
     // Create the business with default values

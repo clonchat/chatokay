@@ -16,6 +16,8 @@ import { businessAtom } from "@/lib/store/auth-atoms";
 import { Menu, X, LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { NotificationsDropdown } from "./notifications-dropdown";
+import { useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
 
 interface DashboardTopbarProps {
   onMenuClick: () => void;
@@ -31,6 +33,7 @@ export function DashboardTopbar({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { theme, setTheme } = useTheme();
+  const subscription = useQuery(api.subscriptions.getCurrentUserSubscription);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -66,9 +69,21 @@ export function DashboardTopbar({
         {/* Page title */}
         <div>
           {/* Hide business name on mobile */}
-          <h1 className="text-xl font-semibold text-foreground hidden md:block">
-            {business?.name || "Dashboard"}
-          </h1>
+          <div className="flex items-center gap-2 hidden md:flex">
+            <h1 className="text-xl font-semibold text-foreground">
+              {business?.name || "Dashboard"}
+            </h1>
+            {/* Subscription badge */}
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                subscription?.status === "active"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+              }`}
+            >
+              {subscription?.status === "active" ? "Pro" : "Free"}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground hidden md:block">
             Panel de control
           </p>

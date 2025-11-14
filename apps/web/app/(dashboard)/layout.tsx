@@ -7,6 +7,7 @@ import { authStatusAtom, roleAtom } from "@/lib/store/auth-atoms";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 import { LoadingScreen } from "@/components/loading";
+import { TrialModal } from "@/components/trial-modal";
 
 export default function DashboardLayout({
   children,
@@ -85,6 +86,8 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+      {/* Trial Modal */}
+      <TrialModal />
     </div>
   );
 }

@@ -3,12 +3,7 @@
 import * as React from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card";
+import { Card } from "@workspace/ui/components/card";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -68,7 +63,7 @@ const DialogContent = ({ className, children }: DialogContentProps) => {
   return (
     <Card
       className={cn(
-        "relative z-50 w-full max-w-md bg-card border-border",
+        "relative z-50 w-full max-w-md bg-card border-border shadow-lg p-6",
         className
       )}
     >
@@ -79,29 +74,29 @@ const DialogContent = ({ className, children }: DialogContentProps) => {
 
 const DialogHeader = ({ children }: DialogHeaderProps) => {
   return (
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <div className="flex flex-col space-y-1.5 pb-4">
       {children}
-    </CardHeader>
+    </div>
   );
 };
 
 const DialogTitle = ({ children }: DialogTitleProps) => {
   return (
-    <CardTitle className="text-lg font-semibold text-card-foreground">
+    <h2 className="text-lg font-semibold leading-none tracking-tight text-foreground">
       {children}
-    </CardTitle>
+    </h2>
   );
 };
 
 const DialogDescription = ({ children }: DialogDescriptionProps) => {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
+  return <p className="text-sm text-muted-foreground mt-1.5">{children}</p>;
 };
 
 const DialogFooter = ({ children }: DialogFooterProps) => {
   return (
-    <CardContent className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-6">
+    <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4 mt-4 border-t border-border">
       {children}
-    </CardContent>
+    </div>
   );
 };
 

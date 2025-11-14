@@ -12,6 +12,7 @@ import {
   Settings,
   CalendarClock,
   Plug,
+  CreditCard,
 } from "lucide-react";
 
 const navigation = [
@@ -39,6 +40,11 @@ const navigation = [
     name: "Integraciones",
     href: "/integraciones",
     icon: Plug,
+  },
+  {
+    name: "Suscripciones",
+    href: "/suscripciones",
+    icon: CreditCard,
   },
   {
     name: "Ajustes",
